@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="utils\cLog.cpp" />
+    <ClCompile Include="utils\format.cpp" />
+    <ClCompile Include="serialPort\serialPort.c" />
+    <ClCompile Include="serialPort\serialTiming.c" />
+    <ClCompile Include="serialPort\serialWindows.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="h">
+      <UniqueIdentifier>{d896505b-97c6-44a5-b389-c9f2097c2580}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="utils\cLog.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\date.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\format.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\formatColor.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\formatCore.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\format-inl.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="serialPort\serialPort.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="serialPort\serialPortInternal.h">
+      <Filter>h</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
