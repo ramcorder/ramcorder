@@ -1,0 +1,16 @@
+*.sdf
+*.suo
+*.pas
+*.o
+
+ramcorder
+
+.vs
+x64
+Debug
+Release
+build
+
+*.~*
+*.*~
+*.*;*
