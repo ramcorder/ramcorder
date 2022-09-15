@@ -81,7 +81,7 @@ int main (int numArgs, char** args)
   //}}}
 
   cLog::init (logLevel);
-  cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator - serial ports test"));
+  cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator - serial port test"));
 
   //{{{  get portList
   struct sp_port** portList;
@@ -115,57 +115,59 @@ int main (int numArgs, char** args)
     cLog::log (LOGINFO, fmt::format ("found port {}", portName));
   //}}}
 
+  // if no usePortName use first available
   if (usePortName.empty())
     usePortName = portNames.front();
 
-
-  // Open and configure port
-  cLog::log (LOGINFO, fmt::format ("Looking for port {}", usePortName));
+  //{{{  open and configure port
+  cLog::log (LOGINFO, fmt::format ("configure port {} 9600 8N1, no flow control", usePortName));
   struct sp_port* port;
   check (sp_get_port_by_name (usePortName.c_str(), &port));
-
-  cLog::log (LOGINFO, fmt::format ("Opening port, 9600 8N1, no flow control"));
   check (sp_open (port, SP_MODE_READ_WRITE));
   check (sp_set_baudrate (port, 9600));
   check (sp_set_bits (port, 8));
   check (sp_set_parity( port, SP_PARITY_NONE));
   check (sp_set_stopbits (port, 1));
   check (sp_set_flowcontrol (port, SP_FLOWCONTROL_NONE));
+  //}}}
 
-  // send some data on port and receive it back
+  //{{{  tx on port
   const char* data = "Hello - this is some looped back data! 1234567890";
   size_t size = strlen (data);
 
-  // Send data
-  cLog::log (LOGINFO, fmt::format ("sending {} ({} bytes) on port {}", data, size, sp_get_port_name (port)));
+  cLog::log (LOGINFO, fmt::format ("tx - {} {}:bytes on port:{}", data, size, sp_get_port_name (port)));
   unsigned int timeout = 1000; // 1 second
   int bytesSent = check (sp_blocking_write (port, data, size, timeout));
   if (bytesSent == size)
-    cLog::log (LOGINFO, fmt::format ("sent {} bytes successfully", size));
+    cLog::log (LOGINFO, fmt::format ("tx {}:bytes ok", size));
   else
     cLog::log (LOGINFO, fmt::format ("timed out, {}/{} bytes sent", bytesSent, size));
+  //}}}
 
   // about to receive the data on port
-  cLog::log (LOGINFO, fmt::format ("receiving {} bytes on port {}", size, sp_get_port_name (port)));
+  cLog::log (LOGINFO, fmt::format ("about to rx {}:bytes on port:{}", size, sp_get_port_name (port)));
 
-  // Allocate buffer to receive data, 1 second timeout
+  //{{{  rx from port
+  // allocate buffer to receive data, 1 second timeout
   char* buf = (char*)malloc (size + 1);
   int bytesRead = check (sp_blocking_read (port, buf, size, timeout));
   if (bytesRead == size)
-    cLog::log (LOGINFO, fmt::format ("received {} bytes successfully", size));
+    cLog::log (LOGINFO, fmt::format ("rx {}:bytes successfully", size));
   else
     cLog::log (LOGINFO, fmt::format ("timed out, {}/{} bytes received", bytesRead, size));
 
   // Check if we received the same data we sent
-  buf[result] = '\0';
-  cLog::log (LOGINFO, fmt::format ("received {}", buf));
+  buf[bytesRead] = '\0';
+  cLog::log (LOGINFO, fmt::format ("rx - {}", buf));
 
   // Free receive buffer
   free (buf);
+  //}}}
 
-  // close port and free resources
+  //{{{  close and free port
   check (sp_close (port));
   sp_free_port (port);
+  //}}}
 
   #ifdef _WIN32
     Sleep (2000);
