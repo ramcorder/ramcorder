@@ -1,0 +1,84 @@
+PB/RC Initialization:
+
+
+PB: F7 53 09 50 08 12 00 00 00 43
+RC: FC 41 01 07 08 12 00 00 00 04 01 43 09 4A 06
+PB: F2 4B 0A 00 B9
+RC: F2 41 01 04 C8
+PB: F7 53 09 50 08 12 00 00 00 43
+RC: FC 41 01 00 08 12 00 00 00 04 01 43 09 4A 0D
+PB: F0 73 9D
+RC: F5 41 01 00 00 05 00 00 C4
+
+PB sends 'S' status and identifies itself as 'P' paintbox, sets the timecode to 12:00:00:00
+
+|Status
+|  |ID Param
+|  |  |'P' For Paintbox
+|  |  |  |Timecode param
+|  |  |  |  |Timecode in BCD
+53 09 50 08 12 00 00 00
+
+RC replies with ACK Status, in reset, displays timecode, clip length and identifies itself
+
+|'A' ACK
+|  |Status
+|  |  |In reset
+|  |  |  |Timecode param
+|  |  |  |  |Timecode in BCD
+|  |  |  |  |           |Clip length
+|  |  |  |  |           |  |0x143 (323)
+|  |  |  |  |           |  |     |ID
+|  |  |  |  |           |  |     |  |'J' Jock
+41 01 07 08 12 00 00 00 04 01 43 09 4A
+
+PB replies with a request to set protocol
+
+|'K' set protocol
+|  |Protocol param
+|  |  |Protocol 0
+4B 0A 00
+
+RC replies with ACK
+
+|'A' ACK
+|  |Status
+|  |  |Acknowledge
+41 01 04
+
+PB Re-requests Status
+
+|Status
+|  |ID Param
+|  |  |'P' For Paintbox
+|  |  |  |Timecode param
+|  |  |  |  |Timecode in BCD
+53 09 50 08 12 00 00 00
+
+RC replies, note is almost identical to the first response but now, it's not in reset, it's in 'idle'
+
+|'A' ACK
+|  |Status
+|  |  |Idle
+|  |  |  |Timecode param
+|  |  |  |  |Timecode in BCD
+|  |  |  |  |           |Clip length
+|  |  |  |  |           |  |0x143 (323)
+|  |  |  |  |           |  |     |ID
+|  |  |  |  |           |  |     |  |'J' Jock
+41 01 00 08 12 00 00 00 04 01 43 09 4A
+
+PB replies with a reuest for extended status
+
+|'s' Ext Status
+73
+
+RC replies with an ACK & Status maybe. Then 00 00 i don't know what they are for, we should have a param code before data but there's only the status  (01), 05 would be frame number 00 00.
+
+Any ideas ??
+
+|ACK
+|  |Status???
+|  |  |?????
+|  |  |     |Frame number param??
+41 01 00 00 05 00 00
