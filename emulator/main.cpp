@@ -49,7 +49,7 @@ constexpr uint8_t kProtocolDpbGrab = 0;
 //{{{
 class cRamcorderBase {
 public:
-  cRamcorderBase() {}
+  cRamcorderBase() = default;
   //{{{
   virtual ~cRamcorderBase() {
     // close,free port
@@ -168,6 +168,12 @@ protected:
     addUint8 (value & 0xFF);
   }
   //}}}
+
+  //{{{
+  void flush() {
+  // flush serial port rx
+  }
+  //}}}
   //{{{
   bool sendCommand (bool waitForReply) {
 
@@ -222,10 +228,10 @@ public:
     cLog::log (LOGINFO, fmt::format ("creating ramcorder loopback"));
   }
   //}}}
-  virtual ~cRamcorderLoopback() {}
+  virtual ~cRamcorderLoopback() = default;
 
   //{{{
-  void go() {
+  void go() final {
 
     // tx port
     string test = "Loopback data - 01234567890 abcdefghijklmnpqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -268,10 +274,10 @@ public:
     cLog::log (LOGINFO, fmt::format ("creating ramcorder master"));
   }
   //}}}
-  virtual ~cRamcorderMaster() {}
+  virtual ~cRamcorderMaster() = default;
 
   //{{{
-  void go() {
+  void go() final {
   // simulate a typical ramcorder sequence
 
     selectProtocol (kProtocolDpbGrab);
@@ -345,9 +351,9 @@ public:
     cLog::log (LOGINFO, fmt::format ("creating ramcorder slave"));
   }
   //}}}
-  virtual ~cRamcorderSlave() {}
+  virtual ~cRamcorderSlave() = default;
 
-  void go() {
+  void go() final {
     // listen for command
 
     // action command, possible blackmagic stuff
