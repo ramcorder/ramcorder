@@ -1,4 +1,4 @@
-// main.cpp
+// main.cpp - ramcorder emulator
 //{{{  includes
 #ifdef _WIN32
   // temporary, for Sleep, to see the failures
@@ -39,6 +39,8 @@ constexpr uint8_t kParamProtocol = 10;
 constexpr uint8_t kParamGoDelay = 11;
 
 constexpr char kParamIdDpb = 'P';
+
+constexpr uint8_t kProtocolDpbGrab = 0;
 //}}}
 //{{{
 class cRamcorderBase {
@@ -108,6 +110,8 @@ public:
     addUint8 (kParamProtocol);
     addUint8 (protocol);
     ok = sendCommand (true);
+
+    return ok;
   }
   //}}}
   //{{{
@@ -282,6 +286,7 @@ public:
   virtual ~cRamcorderMaster() {}
 
   void go() {
+    selectProtocol (kProtocolDpbGrab);
   }
 };
 //}}}
@@ -302,8 +307,7 @@ public:
 
 int main (int numArgs, char** args) {
 
-  vector <string> portNames;
-
+  // parse command line
   string usePortName;
   bool loopbackTest = true;
   bool ramcorderMaster = false;
@@ -326,9 +330,12 @@ int main (int numArgs, char** args) {
   }
   //}}}
 
+  // init logging
   cLog::init (logLevel);
   cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator"));
 
+  // get ports
+  vector <string> portNames;
   //{{{  get portList, portnames
   struct sp_port** portList;
   enum sp_return result = sp_list_ports (&portList);
@@ -366,6 +373,7 @@ int main (int numArgs, char** args) {
   if (usePortName.empty())
     usePortName = portNames.front();
 
+  // run ramcorder
   if (loopbackTest) {
     cRamcorderLoopback loopback;
     loopback.initialise (usePortName);
