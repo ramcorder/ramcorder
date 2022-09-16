@@ -16,6 +16,7 @@
 using namespace std;
 //}}}
 
+enum eMode { eLoopback, eMaster, eSlave };
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -44,6 +45,7 @@ constexpr char kParamIdDpb = 'P';
 
 constexpr uint8_t kProtocolDpbGrab = 0;
 //}}}
+
 //{{{
 class cRamcorderBase {
 public:
@@ -344,8 +346,7 @@ int main (int numArgs, char** args) {
 
   // parse command line
   string usePortName;
-  bool loopbackTest = true;
-  bool ramcorderMaster = false;
+  eMode mode = eLoopback;
   eLogLevel logLevel = LOGINFO;
   //{{{  parse commandLine params
   for (int i = 1; i < numArgs; i++) {
@@ -357,9 +358,11 @@ int main (int numArgs, char** args) {
     else if (param == "log3")
       logLevel = LOGINFO3;
     else if (param == "loop")
-      loopbackTest = true;
+      mode = eLoopback;
     else if (param == "master")
-      ramcorderMaster = true;
+      mode = eMaster;
+    else if (param == "slave")
+      mode = eSlave;
     else
       usePortName = param;
   }
@@ -409,18 +412,29 @@ int main (int numArgs, char** args) {
     usePortName = portNames.front();
 
   // run ramcorder
-  if (loopbackTest) {
-    cRamcorderLoopback loopback;
-    loopback.initialise (usePortName);
-    loopback.go();
-  } else if (ramcorderMaster) {
-    cRamcorderMaster master;
-    master.initialise (usePortName);
-    master.go();
-  } else {
-    cRamcorderSlave slave;
-    slave.initialise (usePortName);
-    slave.go();
+  switch (mode) {
+    //{{{
+    case eLoopback: {
+      cRamcorderLoopback loopback;
+      loopback.initialise (usePortName);
+      loopback.go();
+      break;
+    }
+    //}}}
+    //{{{
+    case eMaster: {
+      cRamcorderMaster master;
+      master.initialise (usePortName);
+      master.go();
+    }
+    //}}}
+    //{{{
+    case eSlave: {
+      cRamcorderSlave slave;
+      slave.initialise (usePortName);
+      slave.go();
+    }
+    //}}}
   }
 
   #ifdef _WIN32
