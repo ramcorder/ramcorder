@@ -17,6 +17,8 @@ using namespace std;
 //}}}
 
 //{{{  constexpr
+constexpr uint8_t kPacketMax = 16;
+
 constexpr bool kNtsc = false;
 
 constexpr char kCommandStatusReport = 'S';
@@ -186,18 +188,32 @@ protected:
 private:
   //{{{
   void startCommand (char command) {
-  }
-  //}}}
-  //{{{
-  void addChar (char c) {
+
+    mPacket[0] = 2;
+    mPacket[1] = uint8_t (command);
   }
   //}}}
   //{{{
   void addUint8 (uint8_t value) {
+
+    mPacket[0] = mPacket[0] + 1;
+    if (mPacket[0] >= kPacketMax)
+      cLog::log (LOGERROR, fmt::format ("addUint8 - too many bytes in packet"));
+    else
+      mPacket[mPacket[0]] = value;
+  }
+  //}}}
+  //{{{
+  void addChar (char ch) {
+
+    addUint8 (uint8_t (ch));
   }
   //}}}
   //{{{
   void addWord (int16_t value) {
+
+    addUint8 (value >> 8);
+    addUint8 (value & 0xFF);
   }
   //}}}
   //{{{
@@ -221,10 +237,10 @@ private:
   string mPortName;
   struct sp_port* mPort;
 
-  array <uint8_t, 16> mPacket = { 0 };
+  array <uint8_t, kPacketMax> mPacket = { 0 };
 
   uint8_t mStatus = 0;
-  array <uint8_t,4> mTimecode = { 0 };
+  array <uint8_t, 4> mTimecode = { 0 };
   uint16_t mFieldNum = 0;
   uint16_t mClipLength = 0;
 };
@@ -248,7 +264,7 @@ public:
     cLog::log (LOGINFO, fmt::format ("setup to tx {}:bytes on port:{}", test.size(), sp_get_port_name (getPort())));
     cLog::log (LOGINFO, fmt::format ("tx - {}", test));
 
-    unsigned int timeout = 1000; // 1 second
+    const unsigned int timeout = 1000; // 1 second
     int bytesSent = spCheck (sp_blocking_write (getPort(), test.data(), test.size(), timeout));
     if (bytesSent == test.size())
       cLog::log (LOGINFO, fmt::format ("tx {}:bytes ok", test.size()));
