@@ -130,7 +130,7 @@ public:
   }
   //}}}
   //{{{
-  bool go (bool playGo, bool recordGo, uint16_t goDelay) {
+  bool start (bool playGo, bool recordGo, uint16_t goDelay) {
     return true;
   }
   //}}}
@@ -214,15 +214,15 @@ private:
   }
   //}}}
 
-  uint8_t mStatus = 0;
-  array <uint8_t,4> mTimecode = {0};
-  uint16_t mFieldNum = 0;
-  uint16_t mClipLength = 0;
-
-  array <uint8_t, 16> mPacket = {0};
-
   string mPortName;
   struct sp_port* mPort;
+
+  array <uint8_t, 16> mPacket = { 0 };
+
+  uint8_t mStatus = 0;
+  array <uint8_t,4> mTimecode = { 0 };
+  uint16_t mFieldNum = 0;
+  uint16_t mClipLength = 0;
 };
 //}}}
 //{{{
@@ -327,9 +327,9 @@ int main (int numArgs, char** args) {
   //}}}
 
   cLog::init (logLevel);
-  cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator - serial port test"));
+  cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator"));
 
-  //{{{  get portList,portnames
+  //{{{  get portList, portnames
   struct sp_port** portList;
   enum sp_return result = sp_list_ports (&portList);
   if (result != SP_OK) {
@@ -349,9 +349,11 @@ int main (int numArgs, char** args) {
   //{{{  abort if no ports
   if (portNames.empty()) {
     cLog::log (LOGINFO, fmt::format ("sp_list_ports - no ports"));
+
     #ifdef _WIN32
       Sleep (2000);
     #endif
+
     return -1;
   }
   //}}}
