@@ -302,6 +302,8 @@ public:
   virtual ~cRamcorderMaster() {}
 
   void go() {
+  // simulate a typical ramcorder sequence
+
     selectProtocol (kProtocolDpbGrab);
   }
 };
@@ -317,6 +319,7 @@ public:
   virtual ~cRamcorderSlave() {}
 
   void go() {
+  // listen for command, send info/acknowledge
   }
 };
 //}}}
