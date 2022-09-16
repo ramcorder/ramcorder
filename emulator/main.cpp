@@ -90,67 +90,17 @@ public:
   }
   //}}}
 
-  struct sp_port* getPort() { return mPort; }
   //{{{
   uint16_t getSize() {
     return mClipLength;
   }
   //}}}
 
-  //{{{
-  bool selectProtocol (uint8_t protocol) {
-
-    startCommand (kCommandStatusReport);
-    addUint8 (kParamId);
-    addChar (kParamIdDpb);
-    addUint8 (kParamTimecode);
-    addUint8 (decToBcd (12));
-    addUint8 (0);
-    addUint8 (0);
-    addUint8 (0);
-    bool ok = sendCommand (true);
-
-    startCommand (kCommandSelectProtocol);
-    addUint8 (kParamProtocol);
-    addUint8 (protocol);
-    ok = sendCommand (true);
-
-    return ok;
-  }
-  //}}}
-  //{{{
-  bool position (bool waitForReply, uint16_t field, bool fieldMode, bool field2Dom, bool reverse) {
-    return true;
-  }
-  //}}}
-  //{{{
-  bool selectClip (bool inputClip, bool fieldMode, bool field2Dom,
-                   uint16_t startField, uint16_t finishField,
-                   bool play_reverse, bool play_bounce,
-                   bool rec_loop, bool play_loop,
-                   bool cine_expand, bool cine_compress) {
-    return true;
-  }
-  //}}}
-  //{{{
-  bool pollField (uint16_t field, bool field2dom) {
-    return false;
-  }
-  //}}}
-  //{{{
-  bool start (bool playGo, bool recordGo, uint16_t goDelay) {
-    return true;
-  }
-  //}}}
-  //{{{
-  bool stop() {
-    return true;
-  }
-  //}}}
-
   virtual void go() = 0;
 
 protected:
+  struct sp_port* getPort() { return mPort; }
+
   //{{{
   int spCheck (enum sp_return result) {
   // dumb sp error checking, abort at sign of any trouble
@@ -187,7 +137,6 @@ protected:
   }
   //}}}
 
-private:
   //{{{
   void startCommand (char command) {
 
@@ -198,7 +147,8 @@ private:
   //{{{
   void addUint8 (uint8_t value) {
 
-    mPacket[0] = mPacket[0] + 1;
+    mPacket[0]++;
+
     if (mPacket[0] >= kPacketMax)
       cLog::log (LOGERROR, fmt::format ("addUint8 - too many bytes in packet"));
     else
@@ -223,7 +173,7 @@ private:
 
     // flush rx buffer
 
-    // send command
+    // send command packet
 
     if (waitForReply) {
       // wait for reply
@@ -244,7 +194,7 @@ private:
   uint8_t decToBcd (uint8_t value) {
 
     if (value > 99) {
-      cLog::log (LOGERROR, fmt::format ("decToBcd - param too big {}", value));
+      cLog::log (LOGERROR, fmt::format ("decToBcd - value too big {}", value));
       return 0;
     }
 
@@ -252,6 +202,7 @@ private:
   }
   //}}}
 
+private:
   string mPortName;
   struct sp_port* mPort;
 
@@ -319,11 +270,71 @@ public:
   //}}}
   virtual ~cRamcorderMaster() {}
 
+  //{{{
   void go() {
   // simulate a typical ramcorder sequence
 
     selectProtocol (kProtocolDpbGrab);
+
+    // some sort of ramcorder exercises
+    //selectClip (...)
+    //start (...)
+    //stop()
   }
+  //}}}
+
+private:
+  //{{{
+  bool selectProtocol (uint8_t protocol) {
+
+    startCommand (kCommandStatusReport);
+    addUint8 (kParamId);
+    addChar (kParamIdDpb);
+    addUint8 (kParamTimecode);
+    addUint8 (decToBcd (12));
+    addUint8 (0);
+    addUint8 (0);
+    addUint8 (0);
+    bool ok = sendCommand (true);
+
+    startCommand (kCommandSelectProtocol);
+    addUint8 (kParamProtocol);
+    addUint8 (protocol);
+    ok = sendCommand (true);
+
+    return ok;
+  }
+  //}}}
+  //{{{
+  bool position (bool waitForReply, uint16_t field, bool fieldMode, bool field2Dom, bool reverse) {
+    return true;
+  }
+  //}}}
+  //{{{
+  bool selectClip (bool inputClip, bool fieldMode, bool field2Dom,
+                   uint16_t startField, uint16_t finishField,
+                   bool play_reverse, bool play_bounce,
+                   bool rec_loop, bool play_loop,
+                   bool cine_expand, bool cine_compress) {
+    return true;
+  }
+  //}}}
+  //{{{
+  bool pollField (uint16_t field, bool field2dom) {
+    return false;
+  }
+  //}}}
+  //{{{
+  bool start (bool playGo, bool recordGo, uint16_t goDelay) {
+    return true;
+  }
+  //}}}
+  //{{{
+  bool stop() {
+    return true;
+  }
+  //}}}
+
 };
 //}}}
 //{{{
@@ -337,14 +348,18 @@ public:
   virtual ~cRamcorderSlave() {}
 
   void go() {
-  // listen for command, send info/acknowledge
+    // listen for command
+
+    // action command, possible blackmagic stuff
+
+    // send info/acknowledge
   }
 };
 //}}}
 
 int main (int numArgs, char** args) {
 
-  // parse command line
+  // set command line switches
   string usePortName;
   eMode mode = eLoopback;
   eLogLevel logLevel = LOGINFO;
