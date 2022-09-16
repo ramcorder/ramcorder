@@ -218,6 +218,22 @@ private:
   //}}}
   //{{{
   bool sendCommand (bool waitForReply) {
+
+    // flush rx buffer
+
+    // send command
+
+    if (waitForReply) {
+      // wait for reply
+    }
+
+    return true;
+  }
+  //}}}
+  //{{{
+  bool rxReply() {
+  // wait for and rx reply
+
     return true;
   }
   //}}}
