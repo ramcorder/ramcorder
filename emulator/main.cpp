@@ -184,12 +184,14 @@ protected:
   //{{{
   void flush() {
   // flush serial port rx
+    cLog::log (LOGINFO, fmt::format ("implement flush"));
   }
   //}}}
   //{{{
   bool rxReply() {
   // wait for and rx reply
 
+    cLog::log (LOGINFO, fmt::format ("implement rxReply"));
     return true;
   }
   //}}}
@@ -339,6 +341,8 @@ private:
   //}}}
   //{{{
   bool position (bool waitForReply, uint16_t field, bool fieldMode, bool field2Dom, bool reverse) {
+
+    cLog::log (LOGINFO, fmt::format ("implement position"));
     return true;
   }
   //}}}
@@ -348,21 +352,29 @@ private:
                    bool play_reverse, bool play_bounce,
                    bool rec_loop, bool play_loop,
                    bool cine_expand, bool cine_compress) {
+
+    cLog::log (LOGINFO, fmt::format ("implement selectClip"));
     return true;
   }
   //}}}
   //{{{
   bool pollField (uint16_t field, bool field2dom) {
+
+    cLog::log (LOGINFO, fmt::format ("implement pollField"));
     return false;
   }
   //}}}
   //{{{
   bool start (bool playGo, bool recordGo, uint16_t goDelay) {
+
+    cLog::log (LOGINFO, fmt::format ("implement start"));
     return true;
   }
   //}}}
   //{{{
   bool stop() {
+
+    cLog::log (LOGINFO, fmt::format ("implement stop"));
     return true;
   }
   //}}}
