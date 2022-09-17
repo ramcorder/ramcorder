@@ -91,7 +91,7 @@ public:
   //}}}
 
   //{{{
-  uint16_t getSize() {
+  uint16_t getNumFrames() {
     return mClipLength;
   }
   //}}}
@@ -140,59 +140,32 @@ protected:
   //{{{
   void startCommand (char command) {
 
-    mPacket[0] = 2;
-    mPacket[1] = uint8_t (command);
+    mPacket = { 0 };
+    mPacket[1] = static_cast <uint8_t>(command);
+    mCount = 2;
   }
   //}}}
   //{{{
   void addUint8 (uint8_t value) {
 
-    mPacket[0]++;
-
-    if (mPacket[0] >= kPacketMax)
-      cLog::log (LOGERROR, fmt::format ("addUint8 - too many bytes in packet"));
-    else
-      mPacket[mPacket[0]] = value;
+    if (mCount >= kPacketMax-2) // must be room for checksum
+      cLog::log (LOGERROR, fmt::format ("addUint8 - too many bytes in packet adding {}", value));
+    else {
+      mPacket[mCount] = value;
+      mCount++;
+    }
   }
   //}}}
   //{{{
   void addChar (char ch) {
-
-    addUint8 (uint8_t (ch));
+    addUint8 (static_cast <uint8_t>(ch));
   }
   //}}}
   //{{{
   void addWord (int16_t value) {
 
     addUint8 (value >> 8);
-    addUint8 (value & 0xFF);
-  }
-  //}}}
-
-  //{{{
-  void flush() {
-  // flush serial port rx
-  }
-  //}}}
-  //{{{
-  bool sendCommand (bool waitForReply) {
-
-    // flush rx buffer
-
-    // send command packet
-
-    if (waitForReply) {
-      // wait for reply
-    }
-
-    return true;
-  }
-  //}}}
-  //{{{
-  bool rxReply() {
-  // wait for and rx reply
-
-    return true;
+    addUint8 (value & 0xff);
   }
   //}}}
 
@@ -208,10 +181,63 @@ protected:
   }
   //}}}
 
+  //{{{
+  void flush() {
+  // flush serial port rx
+  }
+  //}}}
+  //{{{
+  bool rxReply() {
+  // wait for and rx reply
+
+    return true;
+  }
+  //}}}
+  //{{{
+  bool sendCommand (bool waitForReply) {
+
+    // flush rx buffer
+    flush();
+
+    // set first byte of command packet from header and count
+    mPacket[0] = 0xF0 | ((mCount - 2) & 0xF);
+
+    // calc checksum
+    uint16_t checksum = 0;
+    for (uint8_t i = 0; i < mCount; i++)
+      checksum += mPacket[i];
+    checksum = (0x100 - (checksum & 0xff)) & 0xff;
+
+    // append checksum to packet
+    mPacket[mCount] = static_cast <uint8_t>(checksum);
+    mCount++;
+
+    // create debug string
+    string debugString;
+    for (uint8_t i = 0; i < mCount; i++)
+      debugString += fmt::format ("{:02x} ", mPacket[i]);
+
+    const unsigned int timeout = 1000; // 1 second
+    int bytesSent = spCheck (sp_blocking_write (getPort(), mPacket.data(), mCount, timeout));
+    if (bytesSent == mCount)
+      cLog::log (LOGINFO, fmt::format ("tx {}", debugString));
+    else
+      cLog::log (LOGINFO, fmt::format ("timed out - {} bytes sent of ", bytesSent, debugString));
+
+    if (waitForReply) {
+      // wait for reply
+      rxReply();
+    }
+
+    return true;
+  }
+  //}}}
+
 private:
   string mPortName;
   struct sp_port* mPort;
 
+  uint8_t mCount = 0;
   array <uint8_t, kPacketMax> mPacket = { 0 };
 
   uint8_t mStatus = 0;
@@ -340,7 +366,6 @@ private:
     return true;
   }
   //}}}
-
 };
 //}}}
 //{{{
@@ -367,7 +392,7 @@ int main (int numArgs, char** args) {
 
   // set command line switches
   string usePortName;
-  eMode mode = eLoopback;
+  eMode mode = eMaster;
   eLogLevel logLevel = LOGINFO;
   //{{{  parse commandLine params
   for (int i = 1; i < numArgs; i++) {
@@ -447,6 +472,7 @@ int main (int numArgs, char** args) {
       cRamcorderMaster master;
       master.initialise (usePortName);
       master.go();
+      break;
     }
     //}}}
     //{{{
@@ -454,6 +480,7 @@ int main (int numArgs, char** args) {
       cRamcorderSlave slave;
       slave.initialise (usePortName);
       slave.go();
+      break;
     }
     //}}}
   }
