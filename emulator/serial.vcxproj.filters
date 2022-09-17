@@ -2,15 +2,31 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="utils\cLog.cpp" />
-    <ClCompile Include="utils\format.cpp" />
-    <ClCompile Include="serialPort\serialPort.c" />
-    <ClCompile Include="serialPort\serialTiming.c" />
-    <ClCompile Include="serialPort\serialWindows.c" />
+    <ClCompile Include="serialPort\serialPort.c">
+      <Filter>serialPort</Filter>
+    </ClCompile>
+    <ClCompile Include="serialPort\serialTiming.c">
+      <Filter>serialPort</Filter>
+    </ClCompile>
+    <ClCompile Include="serialPort\serialWindows.c">
+      <Filter>serialPort</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\format.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\cLog.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="h">
       <UniqueIdentifier>{d896505b-97c6-44a5-b389-c9f2097c2580}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="serialPort">
+      <UniqueIdentifier>{ef550f35-2bfe-47e5-b7ea-c00c33c75045}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utils">
+      <UniqueIdentifier>{13841274-5a01-4cae-b0ea-47cfe8ee18db}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
