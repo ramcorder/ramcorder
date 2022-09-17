@@ -3,6 +3,7 @@
 #ifdef _WIN32
   // temporary, for Sleep, to see the failures
   #include <windows.h>
+  #include <VersionHelpers.h>
 #endif
 
 #include <cstdint>
@@ -402,9 +403,17 @@ public:
 
 int main (int numArgs, char** args) {
 
+
   // set command line switches
   string usePortName;
+  //{{{  mono/colour console
   bool mono = false;
+
+  #ifdef _WIN32
+    if (IsWindows10OrGreater())
+      mono = true;
+  #endif
+  //}}}
   eLogLevel logLevel = LOGINFO;
   eMode mode = eMaster;
   //{{{  parse commandLine params
