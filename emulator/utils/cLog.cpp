@@ -82,6 +82,8 @@ namespace {
   const int kMaxBuffer = 10000;
   enum eLogLevel mLogLevel = LOGERROR;
 
+  bool mAnsii = true;
+
   map <uint64_t, string> mThreadNameMap;
 
   deque <cLine> mLineDeque;
@@ -499,6 +501,11 @@ enum eLogLevel cLog::getLogLevel() {
 //}}}
 
 //{{{
+void cLog::disableAnsii() {
+  mAnsii = false;
+  }
+//}}}
+//{{{
 void cLog::cycleLogLevel() {
 // cycle log level for L key presses in gui
 
@@ -559,14 +566,20 @@ void cLog::log (enum eLogLevel logLevel, const string& logStr) {
     }
 
   else if (logLevel <= mLogLevel) {
-    fmt::print (fg (fmt::color::floral_white) | fmt::emphasis::bold, "{} {} {}\n",
-                date::format ("%T", chrono::floor<chrono::microseconds>(now)),
-                fmt::format (fg (fmt::color::dark_gray), "{}", getThreadName (getThreadId())),
-                fmt::format (fg (kLevelColours[logLevel]), "{}", logStr));
+    if (mAnsii)
+      fmt::print (fg (fmt::color::floral_white) | fmt::emphasis::bold, "{} {} {}\n",
+                  date::format ("%T", chrono::floor<chrono::microseconds>(now)),
+                  fmt::format (fg (fmt::color::dark_gray), "{}", getThreadName (getThreadId())),
+                  fmt::format (fg (kLevelColours[logLevel]), "{}", logStr));
+    else
+      fmt::print ("{} {} {}\n",
+                  date::format ("%T", chrono::floor<chrono::microseconds>(now)),
+                  getThreadName (getThreadId()),
+                  logStr);
 
     if (mFile) {
       fputs (fmt::format ("{} {} {}\n",
-                          date::format("%T", chrono::floor<chrono::microseconds>(now)),
+                          date::format ("%T", chrono::floor<chrono::microseconds>(now)),
                           getThreadName (getThreadId()),
                           logStr).c_str(), mFile);
       fflush (mFile);

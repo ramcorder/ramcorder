@@ -22,6 +22,7 @@ public:
   static enum eLogLevel getLogLevel();
 
   // set
+  static void disableAnsii();
   static void cycleLogLevel();
   static void setLogLevel (eLogLevel logLevel);
   static void setThreadName (const std::string& name);

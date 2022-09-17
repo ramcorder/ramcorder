@@ -392,8 +392,9 @@ int main (int numArgs, char** args) {
 
   // set command line switches
   string usePortName;
-  eMode mode = eMaster;
+  bool mono = false;
   eLogLevel logLevel = LOGINFO;
+  eMode mode = eMaster;
   //{{{  parse commandLine params
   for (int i = 1; i < numArgs; i++) {
     string param = args[i];
@@ -403,6 +404,8 @@ int main (int numArgs, char** args) {
       logLevel = LOGINFO2;
     else if (param == "log3")
       logLevel = LOGINFO3;
+    else if (param == "mono")
+      mono = true;
     else if (param == "loop")
       mode = eLoopback;
     else if (param == "master")
@@ -415,6 +418,8 @@ int main (int numArgs, char** args) {
   //}}}
 
   // init logging
+  if (mono)
+    cLog::disableAnsii();
   cLog::init (logLevel);
   cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator"));
 
