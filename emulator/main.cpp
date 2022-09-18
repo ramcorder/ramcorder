@@ -143,6 +143,7 @@ protected:
 
     mPacket = { 0 };
     mPacket[1] = static_cast <uint8_t>(command);
+
     mCount = 2;
   }
   //}}}
@@ -184,15 +185,46 @@ protected:
 
   //{{{
   void flush() {
-  // flush serial port rx
-    cLog::log (LOGINFO, fmt::format ("implement flush"));
+  // flush rx
+
+    cLog::log (LOGINFO, fmt::format ("flush rx"));
+    sp_flush (getPort(), SP_BUF_INPUT);
   }
   //}}}
   //{{{
   bool rxReply() {
   // wait for and rx reply
 
-    cLog::log (LOGINFO, fmt::format ("implement rxReply"));
+    cLog::log (LOGINFO, fmt::format ("rx reply"));
+
+    // rx header, no timeout
+    uint8_t header;
+    int bytesRead = spCheck (sp_blocking_read (getPort(), &header, 1, 0));
+    if (bytesRead != 1) {
+      // header error, unlikely unless we use the timeout
+      cLog::log (LOGERROR, fmt::format ("rx header failed"));
+      return false;
+    }
+
+    int packetBytes = (header & 0x0f) + 2;
+    cLog::log (LOGINFO, fmt::format ("rx header {:x} expect {} more bytes", header, packetBytes));
+
+    // rx rest of packet, 1 second timeout
+    array <uint8_t, 16> rxBuffer = { 0 };
+    bytesRead = spCheck (sp_blocking_read (getPort(), rxBuffer.data(), packetBytes, 1000));
+    if (bytesRead != packetBytes) {
+      // packet body error
+      string debugString;
+      for (uint8_t i = 0; i < bytesRead; i++)
+        debugString += fmt::format ("{:02x} ", rxBuffer[i]);
+      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - packet body not ok - {}", bytesRead, debugString));
+      return false;
+    }
+
+    string debugString;
+    for (uint8_t i = 0; i < packetBytes; i++)
+      debugString += fmt::format ("{:02x} ", rxBuffer[i]);
+    cLog::log (LOGINFO, fmt::format ("rx {}:bytes - packet ok - {:x} {}", packetBytes, header, debugString));
     return true;
   }
   //}}}
@@ -202,7 +234,7 @@ protected:
     // flush rx buffer
     flush();
 
-    // set first byte of command packet from header and count
+    // set first byte of command packet from header and packet length count (minus header and command byte)
     mPacket[0] = 0xF0 | ((mCount - 2) & 0xF);
 
     // calc checksum
