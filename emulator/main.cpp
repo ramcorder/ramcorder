@@ -197,7 +197,7 @@ protected:
 
     cLog::log (LOGINFO, fmt::format ("rxReply"));
 
-    // rx header, no timeout
+    // rx header, without timeout
     uint8_t header;
     int headerByteRead = spCheck (sp_blocking_read (getPort(), &header, 1, 0));
     if (headerByteRead != 1) {
@@ -209,9 +209,10 @@ protected:
     int packetBodyBytesExpected = (header & 0x0f) + 2;
     cLog::log (LOGINFO, fmt::format ("rx header {:x} expect {} more bytes", header, packetBodyBytesExpected));
 
-    // rx rest of packet, 1 second timeout
-    array <uint8_t, 16> rxBuffer = { 0 };
-    int packetBodyBytesRead = spCheck (sp_blocking_read (getPort(), rxBuffer.data(), packetBodyBytesExpected, 1000));
+    // rx packet body, with timeout
+    const unsigned int timeout = 1000; // 1 second
+    array <uint8_t, kPacketMax> rxBuffer = { 0 };
+    int packetBodyBytesRead = spCheck (sp_blocking_read (getPort(), rxBuffer.data(), packetBodyBytesExpected, timeout));
     if (packetBodyBytesRead != packetBodyBytesExpected) {
       // packet body error
       string debugString;
