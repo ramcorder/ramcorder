@@ -262,13 +262,13 @@ public:
   //{{{
   void go() final {
 
-    // tx port
-    string test = "Loopback data - 01234567890 abcdefghijklmnpqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const unsigned int timeout = 1000; // 1 second
+    const string test = "Loopback data - 01234567890 abcdefghijklmnpqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
+    // tx port
     cLog::log (LOGINFO, fmt::format ("setup to tx {}:bytes on port:{}", test.size(), sp_get_port_name (getPort())));
     cLog::log (LOGINFO, fmt::format ("tx - {}", test));
 
-    const unsigned int timeout = 1000; // 1 second
     int bytesSent = spCheck (sp_blocking_write (getPort(), test.data(), test.size(), timeout));
     if (bytesSent == test.size())
       cLog::log (LOGINFO, fmt::format ("tx {}:bytes ok", test.size()));
@@ -403,19 +403,17 @@ public:
 
 int main (int numArgs, char** args) {
 
-
   // set command line switches
   string usePortName;
-  //{{{  mono/colour console
+  eMode mode = eMaster;
+  eLogLevel logLevel = LOGINFO;
   bool mono = false;
-
+  //{{{  guess colour console availabilty
   #ifdef _WIN32
     if (IsWindows10OrGreater())
       mono = true;
   #endif
   //}}}
-  eLogLevel logLevel = LOGINFO;
-  eMode mode = eMaster;
   //{{{  parse commandLine params
   for (int i = 1; i < numArgs; i++) {
     string param = args[i];
