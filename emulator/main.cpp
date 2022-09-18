@@ -199,32 +199,32 @@ protected:
 
     // rx header, no timeout
     uint8_t header;
-    int bytesRead = spCheck (sp_blocking_read (getPort(), &header, 1, 0));
-    if (bytesRead != 1) {
+    int headerByteRead = spCheck (sp_blocking_read (getPort(), &header, 1, 0));
+    if (headerByteRead != 1) {
       // header error, unlikely unless we use the timeout
       cLog::log (LOGERROR, fmt::format ("rx header failed"));
       return false;
     }
 
-    int packetBytes = (header & 0x0f) + 2;
-    cLog::log (LOGINFO, fmt::format ("rx header {:x} expect {} more bytes", header, packetBytes));
+    int packetBodyBytesExpected = (header & 0x0f) + 2;
+    cLog::log (LOGINFO, fmt::format ("rx header {:x} expect {} more bytes", header, packetBodyBytesExpected));
 
     // rx rest of packet, 1 second timeout
     array <uint8_t, 16> rxBuffer = { 0 };
-    bytesRead = spCheck (sp_blocking_read (getPort(), rxBuffer.data(), packetBytes, 1000));
-    if (bytesRead != packetBytes) {
+    int packetBodyBytesRead = spCheck (sp_blocking_read (getPort(), rxBuffer.data(), packetBodyBytesExpected, 1000));
+    if (packetBodyBytesRead != packetBodyBytesExpected) {
       // packet body error
       string debugString;
-      for (uint8_t i = 0; i < bytesRead; i++)
+      for (uint8_t i = 0; i < packetBodyBytesRead; i++)
         debugString += fmt::format ("{:02x} ", rxBuffer[i]);
-      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - packet body not ok - {}", bytesRead, debugString));
+      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - packet body not ok - {}", packetBodyBytesRead, debugString));
       return false;
     }
 
     string debugString;
-    for (uint8_t i = 0; i < packetBytes; i++)
+    for (uint8_t i = 0; i < packetBodyBytesRead; i++)
       debugString += fmt::format ("{:02x} ", rxBuffer[i]);
-    cLog::log (LOGINFO, fmt::format ("rx {}:bytes - packet ok - {:x} {}", packetBytes, header, debugString));
+    cLog::log (LOGINFO, fmt::format ("rx {}:bytes - packet ok - {:x} {}", packetBodyBytesRead, header, debugString));
     return true;
   }
   //}}}
