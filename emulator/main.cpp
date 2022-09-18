@@ -184,10 +184,10 @@ protected:
   //}}}
 
   //{{{
-  void flush() {
+  void flushRx() {
   // flush rx
 
-    cLog::log (LOGINFO, fmt::format ("flush rx"));
+    cLog::log (LOGINFO, fmt::format ("flushRx"));
     sp_flush (getPort(), SP_BUF_INPUT);
   }
   //}}}
@@ -195,7 +195,7 @@ protected:
   bool rxReply() {
   // wait for and rx reply
 
-    cLog::log (LOGINFO, fmt::format ("rx reply"));
+    cLog::log (LOGINFO, fmt::format ("rxReply"));
 
     // rx header, no timeout
     uint8_t header;
@@ -231,8 +231,10 @@ protected:
   //{{{
   bool sendCommand (bool waitForReply) {
 
+    cLog::log (LOGINFO, fmt::format ("sendCommand"));
+
     // flush rx buffer
-    flush();
+    flushRx();
 
     // set first byte of command packet from header and packet length count (minus header and command byte)
     mPacket[0] = 0xF0 | ((mCount - 2) & 0xF);
