@@ -23,28 +23,51 @@ constexpr uint8_t kPacketMax = 16;
 
 constexpr bool kNtsc = false;
 
-constexpr char kCommandStatusReport = 'S';
-constexpr char kCommandExtraStatus = 's';
-constexpr char kCommandAcknowledge = 'A';
+constexpr char kCommandStatusReport   = 'S';
+constexpr char kCommandExtraStatus    = 's';
+constexpr char kCommandAcknowledge    = 'A';
 constexpr char kCommandSelectProtocol = 'K';
-constexpr char kCommandRecord = 'R';
-constexpr char kCommandView = 'V';
-constexpr char kCommandGo = 'G';
-constexpr char kCommandPosition = 'P';
+constexpr char kCommandRecord         = 'R';
+constexpr char kCommandView           = 'V';
+constexpr char kCommandGo             = 'G';
+constexpr char kCommandPosition       = 'P';
 
-constexpr uint8_t kParamStatus = 1;
-constexpr uint8_t kParamClipSelect = 2;
-constexpr uint8_t kParamClipLength = 4;
-constexpr uint8_t kParamFrameNnumber = 5;
+constexpr uint8_t kParamStatus         = 1;
+constexpr uint8_t kParamClipSelect     = 2;
+constexpr uint8_t kParamClipLength     = 4;
+constexpr uint8_t kParamFrameNnumber   = 5;
 constexpr uint8_t kParamClipDefinition = 7;
-constexpr uint8_t kParamTimecode = 8;
-constexpr uint8_t kParamId = 9;
-constexpr uint8_t kParamProtocol = 10;
-constexpr uint8_t kParamGoDelay = 11;
+constexpr uint8_t kParamTimecode       = 8;
+constexpr uint8_t kParamId             = 9;
+constexpr uint8_t kParamProtocol       = 10;
+constexpr uint8_t kParamGoDelay        = 11;
 
-constexpr char kParamIdDpb = 'P';
+constexpr uint8_t kParamStatusIdle = 0;
+constexpr uint8_t kParamStatusAck =  4;
+constexpr uint8_t kParamStatusNak =  5;
+constexpr uint8_t kParamStatusBusy = 6;
+constexpr uint8_t kParamStatusRst =  7;
+constexpr uint8_t kParamStatusSvc =  8;
 
 constexpr uint8_t kProtocolDpbGrab = 0;
+
+constexpr char kParamIdDpb         = 'P';
+constexpr char kParamIdCarousel    = 'J';
+constexpr char kParamIdHarrysound  = 'A';
+constexpr char kParamIdHarry       = 'H';
+constexpr char kParamIdEncore      = 'E';
+
+constexpr uint8_t kParamclipSelOutput      = 0x00;
+constexpr uint8_t kParamclipSelInput       = 0x01;
+constexpr uint8_t kParamSelPlayBounce      = 0x08;
+constexpr uint8_t kParamClipSelRecordLoop  = 0x10;
+constexpr uint8_t kParamClipSelField       = 0x20;
+constexpr uint8_t kParaClipSelPlaybackLoop = 0x40;
+constexpr uint8_t kParamSelPlayReverse     = 0x80;
+
+constexpr uint8_t kParamSel2field2dom = 0x01;
+constexpr uint8_t kParamSel2expand    = 0x02;
+constexpr uint8_t kParamSel2compress  = 0x04;
 //}}}
 
 //{{{
