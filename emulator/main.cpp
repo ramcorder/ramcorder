@@ -96,6 +96,11 @@ public:
     return mClipLength;
   }
   //}}}
+  //{{{
+  char getReplyType() {
+    return mPacket[1];
+  }
+  //}}}
 
   virtual void go() = 0;
 
@@ -192,50 +197,9 @@ protected:
   }
   //}}}
   //{{{
-  bool rxReply() {
-  // wait for and rx reply
+  bool sendPacket() {
 
-    cLog::log (LOGINFO, fmt::format ("rxReply"));
-
-    // rx header, without timeout
-    uint8_t header;
-    int headerByteRead = spCheck (sp_blocking_read (getPort(), &header, 1, 0));
-    if (headerByteRead != 1) {
-      // header error, unlikely unless we use the timeout
-      cLog::log (LOGERROR, fmt::format ("rx header failed"));
-      return false;
-    }
-
-    int packetBodyBytesExpected = (header & 0x0f) + 2;
-    cLog::log (LOGINFO, fmt::format ("rx header {:x} expect {} more bytes", header, packetBodyBytesExpected));
-
-    // rx packet body, with timeout
-    const unsigned int timeout = 1000; // 1 second
-    array <uint8_t, kPacketMax> rxBuffer = { 0 };
-    int packetBodyBytesRead = spCheck (sp_blocking_read (getPort(), rxBuffer.data(), packetBodyBytesExpected, timeout));
-    if (packetBodyBytesRead != packetBodyBytesExpected) {
-      // packet body error
-      string debugString;
-      for (uint8_t i = 0; i < packetBodyBytesRead; i++)
-        debugString += fmt::format ("{:02x} ", rxBuffer[i]);
-      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - packet body not ok - {}", packetBodyBytesRead, debugString));
-      return false;
-    }
-
-    string debugString;
-    for (uint8_t i = 0; i < packetBodyBytesRead; i++)
-      debugString += fmt::format ("{:02x} ", rxBuffer[i]);
-    cLog::log (LOGINFO, fmt::format ("rx {}:bytes - packet ok - {:x} {}", packetBodyBytesRead, header, debugString));
-    return true;
-  }
-  //}}}
-  //{{{
-  bool sendCommand (bool waitForReply) {
-
-    cLog::log (LOGINFO, fmt::format ("sendCommand"));
-
-    // flush rx buffer
-    flushRx();
+    cLog::log (LOGINFO, fmt::format ("sendPacket"));
 
     // set first byte of command packet from header and packet length count (minus header and command byte)
     mPacket[0] = 0xF0 | ((mCount - 2) & 0xF);
@@ -255,17 +219,93 @@ protected:
     for (uint8_t i = 0; i < mCount; i++)
       debugString += fmt::format ("{:02x} ", mPacket[i]);
 
-    const unsigned int timeout = 1000; // 1 second
+    const unsigned int timeout = 200; // 0.2s
     int bytesSent = spCheck (sp_blocking_write (getPort(), mPacket.data(), mCount, timeout));
-    if (bytesSent == mCount)
-      cLog::log (LOGINFO, fmt::format ("tx {}", debugString));
-    else
-      cLog::log (LOGINFO, fmt::format ("timed out - {} bytes sent of ", bytesSent, debugString));
-
-    if (waitForReply) {
-      // wait for reply
-      rxReply();
+    if (bytesSent != mCount) {
+      cLog::log (LOGERROR, fmt::format ("sendPacket - timed out - {} bytes sent of ", bytesSent, debugString));
+      return false;
     }
+
+    cLog::log (LOGINFO, fmt::format ("sendPacket - tx {}", debugString));
+    return true;
+  }
+  //}}}
+  //{{{
+  bool rxReply (int headerTimeout) {
+  // wait for and rx reply
+
+    cLog::log (LOGINFO, fmt::format ("rxReply"));
+
+    // rx header
+    mPacket = { 0 };
+    int headerByteRead = spCheck (sp_blocking_read (getPort(), &mPacket[0], 1, headerTimeout));
+    if (headerByteRead != 1) {
+      // header error, unlikely unless we use the timeout
+      cLog::log (LOGERROR, fmt::format ("rx header failed"));
+      return false;
+    }
+
+    if ((mPacket[0] & 0xF0) != 0xF0) {
+      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - header byte not header {}", headerByteRead, mPacket[0]));
+      return false;
+    }
+
+    // add header and command bytes
+    mCount = (mPacket[0] & 0x0F) + 2;
+
+    // header already rxed
+    int packetBodyBytesExpected = mCount;
+    cLog::log (LOGINFO, fmt::format ("rx header {:x} expect {} more bytes", mPacket[0], packetBodyBytesExpected));
+
+    // rx packet body, with timeout
+    const unsigned int timeout = 1000; // 1 second
+    int packetBodyBytesRead = spCheck (sp_blocking_read (getPort(), mPacket.data()+1, packetBodyBytesExpected, timeout));
+    if (packetBodyBytesRead != packetBodyBytesExpected) {
+      // packet body error
+      string debugString;
+      for (uint8_t i = 0; i < packetBodyBytesRead; i++)
+        debugString += fmt::format ("{:02x} ", mPacket[i]);
+      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - packet body not ok - {}", packetBodyBytesRead, debugString));
+      return false;
+    }
+
+    string debugString;
+    for (uint8_t i = 0; i < mCount+1; i++)
+      debugString += fmt::format ("{:02x} ", mPacket[i]);
+
+    uint16_t checksum = 0;
+    for (uint8_t i = 0; i < mCount; i++)
+      checksum += mPacket[i];
+    checksum = (0x100 - (checksum & 0xFF)) & 0xFF;
+
+    if (checksum != mPacket[mCount]) {
+      cLog::log (LOGERROR, fmt::format ("rx checksum {:x} != {:x} - {}", mPacket[mCount], checksum, debugString));
+      return false;
+    }
+
+    cLog::log (LOGINFO, fmt::format ("rx {}:bytes - packet ok - {}", packetBodyBytesRead, debugString));
+    return true;
+  }
+  //}}}
+
+  //{{{
+  bool sendCommand (bool waitForReply) {
+
+    cLog::log (LOGINFO, fmt::format ("sendCommand"));
+
+    // flush rx buffer
+    flushRx();
+
+    // tx packet
+    if (!sendPacket()) {
+      cLog::log (LOGERROR, fmt::format ("sendCommand - tx timed out"));
+      return false;
+    }
+
+    if (waitForReply)
+      // wait for reply, 0.2s timeout
+      if (!rxReply (200))
+        cLog::log (LOGERROR, fmt::format ("sendCommand - reply timed out"));
 
     return true;
   }
