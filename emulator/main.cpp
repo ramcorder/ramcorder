@@ -528,46 +528,47 @@ public:
     while (true) {
       // listen for command
       if (rxPacket (0)) {
-        // action command
+        // valid packet, action command
         cLog::log (LOGINFO, fmt::format ("slave rx command {}:{:x}", static_cast<char>(mPacket[1]), mPacket[1]));
+
+        uint8_t packetIndex = 2;
         switch (mPacket[1]) {
           //{{{
           case kCommandStatusReport:
-            cLog::log (LOGINFO, fmt::format ("slave kCommandStatusReport"));
+            cLog::log (LOGINFO, fmt::format ("commandStatusReport"));
+
+            cLog::log (LOGINFO, fmt::format ("- paramId:{:x} id:{:x}",
+                                             mPacket[packetIndex], mPacket[packetIndex+1]));
+
+            cLog::log (LOGINFO, fmt::format ("- paramTimecode:{:x} {:x} {:x} {:x} {:x}",
+                                             mPacket[packetIndex+2],
+                                             mPacket[packetIndex+3], mPacket[packetIndex+4], 
+                                             mPacket[packetIndex+5], mPacket[packetIndex+6]));
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
             addUint8 (kParamStatusAck);
+            // not sure what else to send - id ? - timecode ?
             txPacket();
 
             break;
           //}}}
           //{{{
           case kCommandExtraStatus:
-            cLog::log (LOGINFO, fmt::format ("slave kCommandExtraStatus"));
+            cLog::log (LOGINFO, fmt::format ("commandExtraStatus - poll fieldNum"));
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
             addUint8 (kParamStatusAck);
-            txPacket();
-
-            // plus some extra status
-            break;
-          //}}}
-          //{{{
-          case kCommandAcknowledge:
-            cLog::log (LOGINFO, fmt::format ("slave kCommandAcknowledge"));
-
-            // send info/acknowledge
-            startPacket (kCommandAcknowledge);
-            addUint8 (kParamStatusAck);
+            // send extra status - cur fieldNum ?
             txPacket();
 
             break;
           //}}}
           //{{{
           case kCommandSelectProtocol:
-            cLog::log (LOGINFO, fmt::format ("slave kCommandSelectProtocol"));
+            cLog::log (LOGINFO, fmt::format ("commandSelectProtocol paramProtocol:{:x} protocol:{:x}",
+                                             mPacket[packetIndex], mPacket[packetIndex+1]));
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
@@ -578,7 +579,7 @@ public:
           //}}}
           //{{{
           case kCommandRecord:
-            cLog::log (LOGINFO, fmt::format ("slave kCommandRecord"));
+            cLog::log (LOGINFO, fmt::format ("commandRecord"));
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
@@ -589,7 +590,7 @@ public:
           //}}}
           //{{{
           case kCommandView:
-            cLog::log (LOGINFO, fmt::format ("slave kCommandView"));
+            cLog::log (LOGINFO, fmt::format ("commandView"));
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
@@ -600,7 +601,8 @@ public:
           //}}}
           //{{{
           case kCommandGo:
-            cLog::log (LOGINFO, fmt::format ("slave kCommandGo"));
+            cLog::log (LOGINFO, fmt::format ("commandGo paramGoDelay:{:x} delay:{:x}",
+                                             mPacket[packetIndex], mPacket[packetIndex+1]));
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
@@ -611,18 +613,23 @@ public:
           //}}}
           //{{{
           case kCommandPosition:
-            cLog::log (LOGINFO, fmt::format ("slave kCommandPosition"));
+            cLog::log (LOGINFO, fmt::format ("commandPosition"));
+            cLog::log (LOGINFO, fmt::format ("- paramClipSelect:{:x} mode:{:x} dom:{:x}",
+                                             mPacket[packetIndex], mPacket[packetIndex+1], mPacket[packetIndex+2]));
+            cLog::log (LOGINFO, fmt::format ("- paramClipDefinition:{:x} start:{:x} stop:{:x}",
+                                             mPacket[packetIndex+3],
+                                             (mPacket[packetIndex+4] * 0x100) + mPacket[packetIndex+5],
+                                             (mPacket[packetIndex+6] * 0x100) + mPacket[packetIndex+7]));
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
             addUint8 (kParamStatusAck);
             txPacket();
 
-            // plus position
-
             break;
           //}}}
           default:
+            cLog::log (LOGERROR, fmt::format ("unexpected command {:x}", mPacket[1]));
             break;
         }
       }
