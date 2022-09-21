@@ -681,7 +681,7 @@ int main (int numArgs, char** args) {
 
   // set command line switches
   string usePortName;
-  eMode mode = eMaster;
+  eMode mode = eSlave;
   eLogLevel logLevel = LOGINFO;
   bool mono = false;
   //{{{  guess colour console availabilty
