@@ -541,9 +541,7 @@ public:
   //}}}
   virtual ~cRamcorderSlave() = default;
 
-  //{{{
   void go() final {
-
     while (true) {
       // listen for command
       if (rxReply (0)) {
@@ -604,7 +602,6 @@ public:
       }
     }
   }
-  //}}}
 };
 //}}}
 
