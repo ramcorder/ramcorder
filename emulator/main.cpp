@@ -35,7 +35,7 @@ constexpr char kCommandPosition       = 'P';
 constexpr uint8_t kParamStatus         = 1;
 constexpr uint8_t kParamClipSelect     = 2;
 constexpr uint8_t kParamClipLength     = 4;
-constexpr uint8_t kParamFrameNnumber   = 5;
+constexpr uint8_t kParamFrameNumber    = 5;
 constexpr uint8_t kParamClipDefinition = 7;
 constexpr uint8_t kParamTimecode       = 8;
 constexpr uint8_t kParamId             = 9;
@@ -102,7 +102,7 @@ public:
     mTimecode[2] = 0;
     mTimecode[3] = 0;
 
-    mFieldNum = 0;
+    mFieldNumber = 0;
 
     spCheck (sp_get_port_by_name (mPortName.c_str(), &mPort));
     spCheck (sp_open (mPort, SP_MODE_READ_WRITE));
@@ -325,10 +325,67 @@ protected:
       return false;
     }
 
-    if (waitForReply)
+    if (waitForReply) {
       // wait for reply, 0.2s timeout
-      if (!rxReply (200))
+      if (!rxReply (200)) {
         cLog::log (LOGERROR, fmt::format ("sendCommand - reply timed out"));
+        return false;
+      }
+
+      cLog::log (LOGINFO, fmt::format ("sendCommand - got reply {}:{:x}", static_cast<char>(mPacket[1]), mPacket[1]));
+      switch (mPacket[1]) {
+        //{{{
+        case kParamStatus:
+          mStatus = mPacket[2];
+          cLog::log (LOGINFO, fmt::format ("carousel status {:x}", mStatus));
+          break;
+        //}}}
+        //{{{
+        case kParamClipSelect:
+          cLog::log (LOGERROR, fmt::format ("unexpected kParamClipSelect {:2}", mPacket[2]));
+          break;
+        //}}}
+        //{{{
+        case kParamClipDefinition:
+          cLog::log (LOGERROR, fmt::format ("unexpected kParamClipDefinition {:x} {:x} {:x} {:x}",
+                                            mPacket[2], mPacket[3], mPacket[4],mPacket[5]));
+          break;
+        //}}}
+        //{{{
+        case kParamTimecode:
+          cLog::log (LOGERROR, fmt::format ("unexpected kParamTimecode {:x} {:x} {:x} {:x}",
+                                            mPacket[2], mPacket[3], mPacket[4],mPacket[5]));
+          break;
+        //}}}
+        //{{{
+        case kParamClipLength:
+          mClipLength = (mPacket[2] * 0x100) + mPacket[3];
+          cLog::log (LOGINFO, fmt::format ("carousel clip length {}", mClipLength));
+          break;
+        //}}}
+        //{{{
+        case kParamId:
+          if (mPacket[2] != 'J')
+            cLog::log (LOGERROR, fmt::format ("id not carousel {}", mPacket[2]));
+          else
+            cLog::log (LOGINFO, fmt::format ("id carousel{}", mPacket[2]));
+          break;
+        //}}}
+        //{{{
+        case kParamProtocol:
+          cLog::log (LOGERROR, fmt::format ("unexpected kParamProtocol {:x}", mPacket[2]));
+          break;
+        //}}}
+        //{{{
+        case kParamFrameNumber:
+          mFieldNumber = (mPacket[2] * 0x100) + mPacket[3];
+          cLog::log (LOGINFO, fmt::format ("carousel at field {}", mFieldNumber));
+          break;
+        //}}}
+        default:
+          break;
+      }
+    }
 
     return true;
   }
@@ -343,7 +400,7 @@ private:
 
   uint8_t mStatus = 0;
   array <uint8_t, 4> mTimecode = { 0 };
-  uint16_t mFieldNum = 0;
+  uint16_t mFieldNumber = 0;
   uint16_t mClipLength = 0;
 };
 //}}}
@@ -489,13 +546,18 @@ public:
   //}}}
   virtual ~cRamcorderSlave() = default;
 
+  //{{{
   void go() final {
-    // listen for command
 
-    // action command, possible blackmagic stuff
-
-    // send info/acknowledge
+    while (true) {
+      // listen for command
+      if (rxReply (0)) {
+        // action command, possible blackmagic stuff
+        // send info/acknowledge
+      }
+    }
   }
+  //}}}
 };
 //}}}
 
