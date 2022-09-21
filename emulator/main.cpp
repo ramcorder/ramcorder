@@ -537,7 +537,7 @@ public:
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
-            addUint8 (0);
+            addUint8 (kParamStatusAck);
             txPacket();
 
             break;
@@ -548,7 +548,7 @@ public:
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
-            addUint8 (0);
+            addUint8 (kParamStatusAck);
             txPacket();
 
             // plus some extra status
@@ -560,7 +560,7 @@ public:
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
-            addUint8 (0);
+            addUint8 (kParamStatusAck);
             txPacket();
 
             break;
@@ -571,7 +571,7 @@ public:
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
-            addUint8 (0);
+            addUint8 (kParamStatusAck);
             txPacket();
 
             break;
@@ -582,7 +582,7 @@ public:
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
-            addUint8 (0);
+            addUint8 (kParamStatusAck);
             txPacket();
 
             break;
@@ -593,7 +593,7 @@ public:
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
-            addUint8 (0);
+            addUint8 (kParamStatusAck);
             txPacket();
 
             break;
@@ -604,7 +604,7 @@ public:
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
-            addUint8 (0);
+            addUint8 (kParamStatusAck);
             txPacket();
 
             break;
@@ -615,7 +615,7 @@ public:
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
-            addUint8 (0);
+            addUint8 (kParamStatusAck);
             txPacket();
 
             // plus position
