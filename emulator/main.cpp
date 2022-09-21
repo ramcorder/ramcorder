@@ -119,11 +119,6 @@ public:
     return mClipLength;
   }
   //}}}
-  //{{{
-  char getReplyType() {
-    return mPacket[1];
-  }
-  //}}}
 
   virtual void go() = 0;
 
@@ -391,12 +386,12 @@ protected:
   }
   //}}}
 
+  uint8_t mCount = 0;
+  array <uint8_t, kPacketMax> mPacket = { 0 };
+
 private:
   string mPortName;
   struct sp_port* mPort;
-
-  uint8_t mCount = 0;
-  array <uint8_t, kPacketMax> mPacket = { 0 };
 
   uint8_t mStatus = 0;
   array <uint8_t, 4> mTimecode = { 0 };
@@ -552,8 +547,60 @@ public:
     while (true) {
       // listen for command
       if (rxReply (0)) {
-        // action command, possible blackmagic stuff
-        // send info/acknowledge
+        // action command
+        cLog::log (LOGINFO, fmt::format ("slave rx command {}:{:x}", static_cast<char>(mPacket[1]), mPacket[1]));
+        switch (mPacket[1]) {
+          //{{{
+          case kCommandStatusReport:
+            cLog::log (LOGINFO, fmt::format ("slave kCommandStatusReport"));
+            // send info/acknowledge
+            break;
+          //}}}
+          //{{{
+          case kCommandExtraStatus:
+            cLog::log (LOGINFO, fmt::format ("slave kCommandExtraStatus"));
+            // send info/acknowledge
+            break;
+          //}}}
+          //{{{
+          case kCommandAcknowledge:
+            cLog::log (LOGINFO, fmt::format ("slave kCommandAcknowledge"));
+            // send info/acknowledge
+            break;
+          //}}}
+          //{{{
+          case kCommandSelectProtocol:
+            cLog::log (LOGINFO, fmt::format ("slave kCommandSelectProtocol"));
+            // send info/acknowledge
+            break;
+          //}}}
+          //{{{
+          case kCommandRecord:
+            cLog::log (LOGINFO, fmt::format ("slave kCommandRecord"));
+            // send info/acknowledge
+            break;
+          //}}}
+          //{{{
+          case kCommandView:
+            cLog::log (LOGINFO, fmt::format ("slave kCommandView"));
+            // send info/acknowledge
+            break;
+          //}}}
+          //{{{
+          case kCommandGo:
+            cLog::log (LOGINFO, fmt::format ("slave kCommandGo"));
+            // send info/acknowledge
+            break;
+          //}}}
+          //{{{
+          case kCommandPosition:
+            cLog::log (LOGINFO, fmt::format ("slave kCommandPosition"));
+            // send info/acknowledge
+            break;
+          //}}}
+          default:
+            break;
+        }
       }
     }
   }
