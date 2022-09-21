@@ -71,11 +71,11 @@ constexpr uint8_t kParamSel2compress  = 0x04;
 //}}}
 
 //{{{
-class cRamcorderBase {
+class cRamcorderPacket {
 public:
-  cRamcorderBase() = default;
+  cRamcorderPacket() = default;
   //{{{
-  virtual ~cRamcorderBase() {
+  virtual ~cRamcorderPacket() {
     // close,free port
     if (mPort) {
       spCheck (sp_close (mPort));
@@ -87,22 +87,9 @@ public:
   //{{{
   void initialise (const string& portName) {
 
+    cLog::log (LOGINFO, fmt::format ("initialise port {} 9600 8N1, no flow control", portName));
+
     mPortName = portName;
-    cLog::log (LOGINFO, fmt::format ("initialise port {} 9600 8N1, no flow control", mPortName));
-
-    mStatus = 0;
-
-    if (kNtsc)
-      mClipLength = 383;
-    else
-      mClipLength = 323;
-
-    mTimecode [0] = 0;
-    mTimecode[1] = 0;
-    mTimecode[2] = 0;
-    mTimecode[3] = 0;
-
-    mFieldNumber = 0;
 
     spCheck (sp_get_port_by_name (mPortName.c_str(), &mPort));
     spCheck (sp_open (mPort, SP_MODE_READ_WRITE));
@@ -111,12 +98,6 @@ public:
     spCheck (sp_set_parity( mPort, SP_PARITY_NONE));
     spCheck (sp_set_stopbits (mPort, 1));
     spCheck (sp_set_flowcontrol (mPort, SP_FLOWCONTROL_NONE));
-  }
-  //}}}
-
-  //{{{
-  uint16_t getNumFrames() {
-    return mClipLength;
   }
   //}}}
 
@@ -162,7 +143,7 @@ protected:
   //}}}
 
   //{{{
-  void startCommand (char command) {
+  void startPacket (char command) {
 
     mPacket = { 0 };
     mPacket[1] = static_cast <uint8_t>(command);
@@ -215,9 +196,9 @@ protected:
   }
   //}}}
   //{{{
-  bool sendPacket() {
+  bool txPacket() {
 
-    cLog::log (LOGINFO, fmt::format ("sendPacket"));
+    cLog::log (LOGINFO, fmt::format ("txPacket"));
 
     // set first byte of command packet from header and packet length count (minus header and command byte)
     mPacket[0] = 0xF0 | ((mCount - 2) & 0xF);
@@ -232,27 +213,22 @@ protected:
     mPacket[mCount] = static_cast <uint8_t>(checksum);
     mCount++;
 
-    // create debug string
-    string debugString;
-    for (uint8_t i = 0; i < mCount; i++)
-      debugString += fmt::format ("{:02x} ", mPacket[i]);
-
     const unsigned int timeout = 200; // 0.2s
     int bytesSent = spCheck (sp_blocking_write (getPort(), mPacket.data(), mCount, timeout));
     if (bytesSent != mCount) {
-      cLog::log (LOGERROR, fmt::format ("sendPacket - timed out - {} bytes sent of ", bytesSent, debugString));
+      cLog::log (LOGERROR, fmt::format ("txPacket - timed out - {} bytes sent of ", bytesSent, getPacketString()));
       return false;
     }
 
-    cLog::log (LOGINFO, fmt::format ("sendPacket - tx {}", debugString));
+    cLog::log (LOGINFO, fmt::format ("txPacket - tx {}", getPacketString()));
     return true;
   }
   //}}}
   //{{{
-  bool rxReply (int headerTimeout) {
+  bool rxPacket (int headerTimeout) {
   // wait for and rx reply
 
-    cLog::log (LOGINFO, fmt::format ("rxReply"));
+    cLog::log (LOGINFO, fmt::format ("rxPacket"));
 
     // rx header
     mPacket = { 0 };
@@ -280,16 +256,9 @@ protected:
     int packetBodyBytesRead = spCheck (sp_blocking_read (getPort(), mPacket.data()+1, packetBodyBytesExpected, timeout));
     if (packetBodyBytesRead != packetBodyBytesExpected) {
       // packet body error
-      string debugString;
-      for (uint8_t i = 0; i < packetBodyBytesRead; i++)
-        debugString += fmt::format ("{:02x} ", mPacket[i]);
-      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - packet body not ok - {}", packetBodyBytesRead, debugString));
+      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - packet body not ok - {}", packetBodyBytesRead, getPacketString()));
       return false;
     }
-
-    string debugString;
-    for (uint8_t i = 0; i < mCount+1; i++)
-      debugString += fmt::format ("{:02x} ", mPacket[i]);
 
     uint16_t checksum = 0;
     for (uint8_t i = 0; i < mCount; i++)
@@ -297,91 +266,11 @@ protected:
     checksum = (0x100 - (checksum & 0xFF)) & 0xFF;
 
     if (checksum != mPacket[mCount]) {
-      cLog::log (LOGERROR, fmt::format ("rx checksum {:x} != {:x} - {}", mPacket[mCount], checksum, debugString));
+      cLog::log (LOGERROR, fmt::format ("rx checksum {:x} != {:x} - {}", mPacket[mCount], checksum, getPacketString()));
       return false;
     }
 
-    cLog::log (LOGINFO, fmt::format ("rx {}:bytes - packet ok - {}", packetBodyBytesRead, debugString));
-    return true;
-  }
-  //}}}
-
-  //{{{
-  bool sendCommand (bool waitForReply) {
-
-    cLog::log (LOGINFO, fmt::format ("sendCommand"));
-
-    // flush rx buffer
-    flushRx();
-
-    // tx packet
-    if (!sendPacket()) {
-      cLog::log (LOGERROR, fmt::format ("sendCommand - tx timed out"));
-      return false;
-    }
-
-    if (waitForReply) {
-      // wait for reply, 0.2s timeout
-      if (!rxReply (200)) {
-        cLog::log (LOGERROR, fmt::format ("sendCommand - reply timed out"));
-        return false;
-      }
-
-      cLog::log (LOGINFO, fmt::format ("sendCommand - got reply {}:{:x}", static_cast<char>(mPacket[1]), mPacket[1]));
-      switch (mPacket[1]) {
-        //{{{
-        case kParamStatus:
-          mStatus = mPacket[2];
-          cLog::log (LOGINFO, fmt::format ("carousel status {:x}", mStatus));
-          break;
-        //}}}
-        //{{{
-        case kParamClipSelect:
-          cLog::log (LOGERROR, fmt::format ("unexpected kParamClipSelect {:2}", mPacket[2]));
-          break;
-        //}}}
-        //{{{
-        case kParamClipDefinition:
-          cLog::log (LOGERROR, fmt::format ("unexpected kParamClipDefinition {:x} {:x} {:x} {:x}",
-                                            mPacket[2], mPacket[3], mPacket[4],mPacket[5]));
-          break;
-        //}}}
-        //{{{
-        case kParamTimecode:
-          cLog::log (LOGERROR, fmt::format ("unexpected kParamTimecode {:x} {:x} {:x} {:x}",
-                                            mPacket[2], mPacket[3], mPacket[4],mPacket[5]));
-          break;
-        //}}}
-        //{{{
-        case kParamClipLength:
-          mClipLength = (mPacket[2] * 0x100) + mPacket[3];
-          cLog::log (LOGINFO, fmt::format ("carousel clip length {}", mClipLength));
-          break;
-        //}}}
-        //{{{
-        case kParamId:
-          if (mPacket[2] != 'J')
-            cLog::log (LOGERROR, fmt::format ("id not carousel {}", mPacket[2]));
-          else
-            cLog::log (LOGINFO, fmt::format ("id carousel{}", mPacket[2]));
-          break;
-        //}}}
-        //{{{
-        case kParamProtocol:
-          cLog::log (LOGERROR, fmt::format ("unexpected kParamProtocol {:x}", mPacket[2]));
-          break;
-        //}}}
-        //{{{
-        case kParamFrameNumber:
-          mFieldNumber = (mPacket[2] * 0x100) + mPacket[3];
-          cLog::log (LOGINFO, fmt::format ("carousel at field {}", mFieldNumber));
-          break;
-        //}}}
-        default:
-          break;
-      }
-    }
-
+    cLog::log (LOGINFO, fmt::format ("rx {}:bytes - packet ok - {}", packetBodyBytesRead, getPacketString()));
     return true;
   }
   //}}}
@@ -390,17 +279,24 @@ protected:
   array <uint8_t, kPacketMax> mPacket = { 0 };
 
 private:
+  //{{{
+  string getPacketString() {
+  // create debug string, dumb way to form string, could do better
+
+    string packetString;
+    for (uint8_t i = 0; i < mCount; i++)
+      packetString += fmt::format ("{:02x} ", mPacket[i]);
+
+    return packetString;
+  }
+  //}}}
+
   string mPortName;
   struct sp_port* mPort;
-
-  uint8_t mStatus = 0;
-  array <uint8_t, 4> mTimecode = { 0 };
-  uint16_t mFieldNumber = 0;
-  uint16_t mClipLength = 0;
 };
 //}}}
 //{{{
-class cRamcorderLoopback : public cRamcorderBase {
+class cRamcorderLoopback : public cRamcorderPacket {
 public:
   //{{{
   cRamcorderLoopback() {
@@ -446,14 +342,34 @@ public:
 };
 //}}}
 //{{{
-class cRamcorderMaster : public cRamcorderBase {
+class cRamcorderMaster : public cRamcorderPacket {
 public:
   //{{{
   cRamcorderMaster() {
     cLog::log (LOGINFO, fmt::format ("creating ramcorder master"));
+
+    mStatus = 0;
+
+    if (kNtsc)
+      mClipLength = 383;
+    else
+      mClipLength = 323;
+
+    mTimecode [0] = 0;
+    mTimecode[1] = 0;
+    mTimecode[2] = 0;
+    mTimecode[3] = 0;
+
+    mFieldNumber = 0;
   }
   //}}}
   virtual ~cRamcorderMaster() = default;
+
+  //{{{
+  uint16_t getNumFrames() {
+    return mClipLength;
+  }
+  //}}}
 
   //{{{
   void go() final {
@@ -468,23 +384,26 @@ public:
   }
   //}}}
 
-private:
   //{{{
   bool selectProtocol (uint8_t protocol) {
 
-    startCommand (kCommandStatusReport);
+    startPacket (kCommandStatusReport);
+
     addUint8 (kParamId);
     addChar (kParamIdDpb);
+
     addUint8 (kParamTimecode);
     addUint8 (decToBcd (12));
     addUint8 (0);
     addUint8 (0);
     addUint8 (0);
+
     bool ok = sendCommand (true);
 
-    startCommand (kCommandSelectProtocol);
+    startPacket (kCommandSelectProtocol);
     addUint8 (kParamProtocol);
     addUint8 (protocol);
+
     ok = sendCommand (true);
 
     return ok;
@@ -529,10 +448,118 @@ private:
     return true;
   }
   //}}}
+
+private:
+  //{{{
+  bool sendCommand (bool waitForReply) {
+
+    cLog::log (LOGINFO, fmt::format ("sendCommand"));
+
+    // flush rx buffer
+    flushRx();
+
+    // tx packet
+    if (!txPacket()) {
+      cLog::log (LOGERROR, fmt::format ("sendCommand - tx timed out"));
+      return false;
+    }
+
+    if (waitForReply) {
+      // wait for reply, 0.2s timeout
+      if (!rxPacket (200)) {
+        cLog::log (LOGERROR, fmt::format ("sendCommand - reply timed out"));
+        return false;
+      }
+
+      if (mPacket[1] != kCommandAcknowledge) {
+      //{{{  not an acknowledge
+        cLog::log (LOGERROR, fmt::format ("sendCommand - unexpected reply{}:{:x}",
+                                          static_cast<char>(mPacket[1]), mPacket[1]));
+        return false;
+      }
+      //}}}
+
+      cLog::log (LOGINFO, fmt::format ("sendCommand - got acknowledge"));
+
+      uint8_t paramIndex = 2;
+      while (paramIndex < mCount) {
+        switch (mPacket[paramIndex]) {
+          //{{{
+          case kParamStatus:
+            mStatus = mPacket[paramIndex + 1];
+            cLog::log (LOGINFO, fmt::format ("carousel status {:x}", mStatus));
+            paramIndex += 2;
+            break;
+          //}}}
+          //{{{
+          case kParamClipSelect:
+            cLog::log (LOGERROR, fmt::format ("unexpected kParamClipSelect {:2}", mPacket[paramIndex + 1]));
+            paramIndex += 2;
+            break;
+          //}}}
+          //{{{
+          case kParamClipDefinition:
+            cLog::log (LOGERROR, fmt::format ("unexpected kParamClipDefinition {:x} {:x} {:x} {:x}",
+                                              mPacket[paramIndex + 1], mPacket[paramIndex + 2],
+                                              mPacket[paramIndex + 3], mPacket[paramIndex + 4]));
+            paramIndex += 5;
+            break;
+          //}}}
+          //{{{
+          case kParamTimecode:
+            cLog::log (LOGERROR, fmt::format ("unexpected kParamTimecode {:x} {:x} {:x} {:x}",
+                                              mPacket[paramIndex + 1], mPacket[paramIndex + 2],
+                                              mPacket[paramIndex + 3], mPacket[paramIndex + 4]));
+            paramIndex += 5;
+            break;
+          //}}}
+          //{{{
+          case kParamClipLength:
+            mClipLength = (mPacket[paramIndex + 1] * 0x100) + mPacket[paramIndex + 2];
+            cLog::log (LOGINFO, fmt::format ("carousel clip length {}", mClipLength));
+            paramIndex += 3;
+            break;
+          //}}}
+          //{{{
+          case kParamId:
+            if (mPacket[2] != 'J')
+              cLog::log (LOGERROR, fmt::format ("id not carousel {}", mPacket[paramIndex + 1]));
+            else
+              cLog::log (LOGINFO, fmt::format ("id carousel{}", mPacket[paramIndex + 1]));
+            paramIndex += 2;
+            break;
+          //}}}
+          //{{{
+          case kParamProtocol:
+            cLog::log (LOGERROR, fmt::format ("unexpected kParamProtocol {:x}", mPacket[paramIndex + 1]));
+            paramIndex += 2;
+            break;
+          //}}}
+          //{{{
+          case kParamFrameNumber:
+            mFieldNumber = (mPacket[paramIndex + 1] * 0x100) + mPacket[paramIndex + 2];
+            cLog::log (LOGINFO, fmt::format ("carousel at field {}", mFieldNumber));
+            paramIndex += 3;
+            break;
+          //}}}
+          default:
+            break;
+        }
+      }
+    }
+
+    return true;
+  }
+  //}}}
+
+  uint8_t mStatus = 0;
+  array <uint8_t, 4> mTimecode = { 0 };
+  uint16_t mFieldNumber = 0;
+  uint16_t mClipLength = 0;
 };
 //}}}
 //{{{
-class cRamcorderSlave : public cRamcorderBase {
+class cRamcorderSlave : public cRamcorderPacket {
 public:
   //{{{
   cRamcorderSlave() {
@@ -544,7 +571,7 @@ public:
   void go() final {
     while (true) {
       // listen for command
-      if (rxReply (0)) {
+      if (rxPacket (0)) {
         // action command
         cLog::log (LOGINFO, fmt::format ("slave rx command {}:{:x}", static_cast<char>(mPacket[1]), mPacket[1]));
         switch (mPacket[1]) {
@@ -552,6 +579,9 @@ public:
           case kCommandStatusReport:
             cLog::log (LOGINFO, fmt::format ("slave kCommandStatusReport"));
             // send info/acknowledge
+            startPacket (kCommandAcknowledge);
+            addUint8 (0);
+            txPacket();
             break;
           //}}}
           //{{{
