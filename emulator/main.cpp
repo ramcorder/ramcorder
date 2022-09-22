@@ -17,7 +17,7 @@
 using namespace std;
 //}}}
 
-const string kVersion = "0.99.1 " __TIME__  " " __DATE__;
+const string kVersion = "0.99.2 " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -88,7 +88,7 @@ public:
   //{{{
   void initialise (const string& portName) {
 
-    cLog::log (LOGINFO, fmt::format ("initialise port {} 9600 8N1, no flow control", portName));
+    cLog::log (LOGINFO, fmt::format ("initialise port {} 9600, 8bit, evenParity, 1 stop, no flow control", portName));
 
     mPortName = portName;
 
