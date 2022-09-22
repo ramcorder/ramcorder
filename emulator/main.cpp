@@ -17,7 +17,7 @@
 using namespace std;
 //}}}
 
-const string kVersion = "0.99.3 " __TIME__  " " __DATE__;
+const string kVersion = "0.99.3 compiled " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
