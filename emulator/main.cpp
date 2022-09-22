@@ -729,6 +729,8 @@ int main (int numArgs, char** args) {
       logLevel = LOGINFO3;
     else if (param == "mono")
       mono = true;
+    else if (param == "colour")
+      mono = false;
     else if (param == "loop")
       mode = eLoopback;
     else if (param == "master")
