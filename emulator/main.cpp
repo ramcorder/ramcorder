@@ -95,7 +95,7 @@ public:
     spCheck (sp_open (mPort, SP_MODE_READ_WRITE));
     spCheck (sp_set_baudrate (mPort, 9600));
     spCheck (sp_set_bits (mPort, 8));
-    spCheck (sp_set_parity( mPort, SP_PARITY_NONE));
+    spCheck (sp_set_parity( mPort, SP_PARITY_EVEN));
     spCheck (sp_set_stopbits (mPort, 1));
     spCheck (sp_set_flowcontrol (mPort, SP_FLOWCONTROL_NONE));
   }
@@ -542,7 +542,7 @@ public:
 
             cLog::log (LOGINFO, fmt::format ("- paramTimecode:{:x} {:x} {:x} {:x} {:x}",
                                              mPacket[packetIndex+2],
-                                             mPacket[packetIndex+3], mPacket[packetIndex+4], 
+                                             mPacket[packetIndex+3], mPacket[packetIndex+4],
                                              mPacket[packetIndex+5], mPacket[packetIndex+6]));
 
             // send info/acknowledge
