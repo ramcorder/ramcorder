@@ -17,8 +17,7 @@
 using namespace std;
 //}}}
 
-enum eMode { eLoopback, eMaster, eSlave };
-const string kVersion = "0.99.1";
+const string kVersion = "0.99.1 " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -70,6 +69,7 @@ constexpr uint8_t kParamSel2field2dom = 0x01;
 constexpr uint8_t kParamSel2expand    = 0x02;
 constexpr uint8_t kParamSel2compress  = 0x04;
 //}}}
+enum eMode { eLoopback, eMaster, eSlave };
 
 //{{{
 class cRamcorderPacket {
@@ -746,7 +746,7 @@ int main (int numArgs, char** args) {
   if (mono)
     cLog::disableAnsii();
   cLog::init (logLevel);
-  cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator {}", kVersion));
+  cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator - version {}", kVersion));
 
   // get ports
   vector <string> portNames;
