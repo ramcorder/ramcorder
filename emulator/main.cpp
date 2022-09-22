@@ -17,7 +17,7 @@
 using namespace std;
 //}}}
 
-const string kVersion = "0.99.3 compiled " __TIME__  " " __DATE__;
+const string kVersion = "0.99.4 compiled " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -609,8 +609,8 @@ public:
             // send acknowledge
             // - send timecode as well?
             startPacket (kCommandAcknowledge);
+            addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
-            addUint8 (0);
             txPacket();
 
             break;
@@ -619,12 +619,17 @@ public:
           case kCommandExtraStatus:
             cLog::log (LOGINFO, fmt::format ("commandExtraStatus - poll fieldNum"));
 
-            // should send extra status - cur fieldNum ?
-
-            // send acknowledge
+            // acknowledgeCommand
             startPacket (kCommandAcknowledge);
+
+            // acknowledgeStatus
+            addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
-            addUint8 (0);
+
+            // fieldNumber
+            addUint8 (kParamFrameNumber);
+            addWord (mFieldNumber);
+
             txPacket();
 
             break;
@@ -636,8 +641,8 @@ public:
 
             // send acknowledge
             startPacket (kCommandAcknowledge);
+            addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
-            addUint8 (0);
             txPacket();
 
             break;
@@ -648,8 +653,8 @@ public:
 
             // send acknowledge
             startPacket (kCommandAcknowledge);
+            addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
-            addUint8 (0);
             txPacket();
 
             break;
@@ -660,8 +665,8 @@ public:
 
             // send acknowledge
             startPacket (kCommandAcknowledge);
+            addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
-            addUint8 (0);
             txPacket();
 
             break;
@@ -673,14 +678,14 @@ public:
 
             // send acknowledge
             startPacket (kCommandAcknowledge);
+            addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
-            addUint8 (0);
             txPacket();
 
             break;
           //}}}
           //{{{
-          case kCommandPosition:
+          case kCommandPosition: {
             cLog::log (LOGINFO, fmt::format ("commandPosition"));
 
             // clipSelect param
@@ -689,19 +694,21 @@ public:
             packetIndex += 3;
 
             // clipDefinition param
+            uint16_t startPlayFieldNumber = (mPacket[packetIndex+1] * 0x100) + mPacket[packetIndex+2];
+            uint16_t stopPlayFieldNumber = (mPacket[packetIndex+3] * 0x100) + mPacket[packetIndex+4];
+            mFieldNumber = startPlayFieldNumber;
             cLog::log (LOGINFO, fmt::format ("- paramClipDefinition:{:x} start:{:x} stop:{:x}",
-                                             mPacket[packetIndex],
-                                             (mPacket[packetIndex+1] * 0x100) + mPacket[packetIndex+2],
-                                             (mPacket[packetIndex+3] * 0x100) + mPacket[packetIndex+4]));
+                                             mPacket[packetIndex], startPlayFieldNumber, stopPlayFieldNumber));
             packetIndex += 5;
 
             // send acknowledge
             startPacket (kCommandAcknowledge);
+            addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
-            addUint8 (0);
             txPacket();
 
             break;
+          }
           //}}}
           default:
             cLog::log (LOGERROR, fmt::format ("unexpected command {:x}", mPacket[1]));
@@ -710,6 +717,9 @@ public:
       }
     }
   }
+
+private:
+  uint16_t mFieldNumber = 0;
 };
 //}}}
 
