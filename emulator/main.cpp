@@ -18,6 +18,7 @@ using namespace std;
 //}}}
 
 enum eMode { eLoopback, eMaster, eSlave };
+const string kVersion = "0.99.1";
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -531,24 +532,41 @@ public:
         // valid packet, action command
         cLog::log (LOGINFO, fmt::format ("slave rx command {}:{:x}", static_cast<char>(mPacket[1]), mPacket[1]));
 
+        // point to first param
         uint8_t packetIndex = 2;
+
+        // decode command
         switch (mPacket[1]) {
           //{{{
           case kCommandStatusReport:
             cLog::log (LOGINFO, fmt::format ("commandStatusReport"));
 
-            cLog::log (LOGINFO, fmt::format ("- paramId:{:x} id:{:x}",
-                                             mPacket[packetIndex], mPacket[packetIndex+1]));
-
-            cLog::log (LOGINFO, fmt::format ("- paramTimecode:{:x} {:x} {:x} {:x} {:x}",
-                                             mPacket[packetIndex+2],
-                                             mPacket[packetIndex+3], mPacket[packetIndex+4],
-                                             mPacket[packetIndex+5], mPacket[packetIndex+6]));
+            // look for params
+            while (packetIndex < mCount) {
+              if (mPacket[packetIndex] == kParamId) {
+                cLog::log (LOGINFO, fmt::format ("- paramId:{:x} id:{:x}", mPacket[packetIndex], mPacket[packetIndex+1]));
+                packetIndex += 2;
+              }
+              else if (mPacket[packetIndex] == kParamTimecode) {
+                cLog::log (LOGINFO, fmt::format ("- paramTimecode:{:x} {:x} {:x} {:x} {:x}",
+                                                 mPacket[packetIndex],
+                                                 mPacket[packetIndex+1], mPacket[packetIndex+2],
+                                                 mPacket[packetIndex+3], mPacket[packetIndex+4]));
+                packetIndex += 5;
+              }
+              else {
+                cLog::log (LOGERROR, fmt::format ("- unknown param:{:x}", mPacket[packetIndex]));
+                packetIndex++;
+              }
+            }
 
             // send info/acknowledge
             startPacket (kCommandAcknowledge);
+
             addUint8 (kParamStatusAck);
-            // not sure what else to send - id ? - timecode ?
+            addUint8 (0);
+
+            // send timecode ?
             txPacket();
 
             break;
@@ -690,11 +708,14 @@ int main (int numArgs, char** args) {
   string usePortName;
   eMode mode = eSlave;
   eLogLevel logLevel = LOGINFO;
-  bool mono = false;
   //{{{  guess colour console availabilty
+  bool mono = true;
+
   #ifdef _WIN32
-    if (IsWindows10OrGreater())
-      mono = true;
+    if (!IsWindows10OrGreater())
+      mono = false;
+  #else
+    mono = false;
   #endif
   //}}}
   //{{{  parse commandLine params
@@ -723,7 +744,7 @@ int main (int numArgs, char** args) {
   if (mono)
     cLog::disableAnsii();
   cLog::init (logLevel);
-  cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator"));
+  cLog::log (LOGNOTICE, fmt::format ("ramcorder emulator {}", kVersion));
 
   // get ports
   vector <string> portNames;
