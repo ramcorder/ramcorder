@@ -17,7 +17,7 @@
 using namespace std;
 //}}}
 
-const string kVersion = "0.99.2 " __TIME__  " " __DATE__;
+const string kVersion = "0.99.3 " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -297,6 +297,52 @@ private:
 };
 //}}}
 //{{{
+class cRamcorderLoopback : public cRamcorderPacket {
+public:
+  //{{{
+  cRamcorderLoopback() {
+    cLog::log (LOGINFO, fmt::format ("creating ramcorder loopback"));
+  }
+  //}}}
+  virtual ~cRamcorderLoopback() = default;
+
+  //{{{
+  void go() final {
+
+    const unsigned int timeout = 1000; // 1 second
+    const string test = "Loopback data - 01234567890 abcdefghijklmnpqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    // tx port
+    cLog::log (LOGINFO, fmt::format ("setup to tx {}:bytes on port:{}", test.size(), sp_get_port_name (getPort())));
+    cLog::log (LOGINFO, fmt::format ("tx - {}", test));
+
+    int bytesSent = spCheck (sp_blocking_write (getPort(), test.data(), test.size(), timeout));
+    if (bytesSent == test.size())
+      cLog::log (LOGINFO, fmt::format ("tx {}:bytes ok", test.size()));
+    else
+      cLog::log (LOGINFO, fmt::format ("timed out, {}/{} bytes sent", bytesSent, test.size()));
+
+    cLog::log (LOGINFO, fmt::format ("setup to rx {}:bytes on port:{}", test.size(), sp_get_port_name(getPort())));
+
+    // allocate buffer to receive data, 1 second timeout
+    char* buf = (char*)malloc (test.size() + 1);
+    int bytesRead = spCheck (sp_blocking_read (getPort(), buf, test.size(), timeout));
+    if (bytesRead == test.size())
+      cLog::log (LOGINFO, fmt::format ("rx {}:bytes ok", test.size()));
+    else
+      cLog::log (LOGINFO, fmt::format ("timed out, {}/{} bytes received", bytesRead, test.size()));
+
+    // spCheck if we received the same data we sent
+    buf[bytesRead] = '\0';
+    cLog::log (LOGINFO, fmt::format ("rx - {}", buf));
+
+    // Free receive buffer
+    free (buf);
+  }
+  //}}}
+};
+//}}}
+//{{{
 class cRamcorderMaster : public cRamcorderPacket {
 public:
   //{{{
@@ -560,13 +606,11 @@ public:
               }
             }
 
-            // send info/acknowledge
+            // send acknowledge
+            // - send timecode as well?
             startPacket (kCommandAcknowledge);
-
             addUint8 (kParamStatusAck);
             addUint8 (0);
-
-            // send timecode ?
             txPacket();
 
             break;
@@ -575,10 +619,12 @@ public:
           case kCommandExtraStatus:
             cLog::log (LOGINFO, fmt::format ("commandExtraStatus - poll fieldNum"));
 
-            // send info/acknowledge
+            // should send extra status - cur fieldNum ?
+
+            // send acknowledge
             startPacket (kCommandAcknowledge);
             addUint8 (kParamStatusAck);
-            // send extra status - cur fieldNum ?
+            addUint8 (0);
             txPacket();
 
             break;
@@ -588,9 +634,10 @@ public:
             cLog::log (LOGINFO, fmt::format ("commandSelectProtocol paramProtocol:{:x} protocol:{:x}",
                                              mPacket[packetIndex], mPacket[packetIndex+1]));
 
-            // send info/acknowledge
+            // send acknowledge
             startPacket (kCommandAcknowledge);
             addUint8 (kParamStatusAck);
+            addUint8 (0);
             txPacket();
 
             break;
@@ -599,9 +646,10 @@ public:
           case kCommandRecord:
             cLog::log (LOGINFO, fmt::format ("commandRecord"));
 
-            // send info/acknowledge
+            // send acknowledge
             startPacket (kCommandAcknowledge);
             addUint8 (kParamStatusAck);
+            addUint8 (0);
             txPacket();
 
             break;
@@ -610,9 +658,10 @@ public:
           case kCommandView:
             cLog::log (LOGINFO, fmt::format ("commandView"));
 
-            // send info/acknowledge
+            // send acknowledge
             startPacket (kCommandAcknowledge);
             addUint8 (kParamStatusAck);
+            addUint8 (0);
             txPacket();
 
             break;
@@ -622,9 +671,10 @@ public:
             cLog::log (LOGINFO, fmt::format ("commandGo paramGoDelay:{:x} delay:{:x}",
                                              mPacket[packetIndex], mPacket[packetIndex+1]));
 
-            // send info/acknowledge
+            // send acknowledge
             startPacket (kCommandAcknowledge);
             addUint8 (kParamStatusAck);
+            addUint8 (0);
             txPacket();
 
             break;
@@ -632,16 +682,23 @@ public:
           //{{{
           case kCommandPosition:
             cLog::log (LOGINFO, fmt::format ("commandPosition"));
+
+            // clipSelect param
             cLog::log (LOGINFO, fmt::format ("- paramClipSelect:{:x} mode:{:x} dom:{:x}",
                                              mPacket[packetIndex], mPacket[packetIndex+1], mPacket[packetIndex+2]));
-            cLog::log (LOGINFO, fmt::format ("- paramClipDefinition:{:x} start:{:x} stop:{:x}",
-                                             mPacket[packetIndex+3],
-                                             (mPacket[packetIndex+4] * 0x100) + mPacket[packetIndex+5],
-                                             (mPacket[packetIndex+6] * 0x100) + mPacket[packetIndex+7]));
+            packetIndex += 3;
 
-            // send info/acknowledge
+            // clipDefinition param
+            cLog::log (LOGINFO, fmt::format ("- paramClipDefinition:{:x} start:{:x} stop:{:x}",
+                                             mPacket[packetIndex],
+                                             (mPacket[packetIndex+1] * 0x100) + mPacket[packetIndex+2],
+                                             (mPacket[packetIndex+3] * 0x100) + mPacket[packetIndex+4]));
+            packetIndex += 5;
+
+            // send acknowledge
             startPacket (kCommandAcknowledge);
             addUint8 (kParamStatusAck);
+            addUint8 (0);
             txPacket();
 
             break;
@@ -653,52 +710,6 @@ public:
       }
     }
   }
-};
-//}}}
-//{{{
-class cRamcorderLoopback : public cRamcorderPacket {
-public:
-  //{{{
-  cRamcorderLoopback() {
-    cLog::log (LOGINFO, fmt::format ("creating ramcorder loopback"));
-  }
-  //}}}
-  virtual ~cRamcorderLoopback() = default;
-
-  //{{{
-  void go() final {
-
-    const unsigned int timeout = 1000; // 1 second
-    const string test = "Loopback data - 01234567890 abcdefghijklmnpqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-    // tx port
-    cLog::log (LOGINFO, fmt::format ("setup to tx {}:bytes on port:{}", test.size(), sp_get_port_name (getPort())));
-    cLog::log (LOGINFO, fmt::format ("tx - {}", test));
-
-    int bytesSent = spCheck (sp_blocking_write (getPort(), test.data(), test.size(), timeout));
-    if (bytesSent == test.size())
-      cLog::log (LOGINFO, fmt::format ("tx {}:bytes ok", test.size()));
-    else
-      cLog::log (LOGINFO, fmt::format ("timed out, {}/{} bytes sent", bytesSent, test.size()));
-
-    cLog::log (LOGINFO, fmt::format ("setup to rx {}:bytes on port:{}", test.size(), sp_get_port_name(getPort())));
-
-    // allocate buffer to receive data, 1 second timeout
-    char* buf = (char*)malloc (test.size() + 1);
-    int bytesRead = spCheck (sp_blocking_read (getPort(), buf, test.size(), timeout));
-    if (bytesRead == test.size())
-      cLog::log (LOGINFO, fmt::format ("rx {}:bytes ok", test.size()));
-    else
-      cLog::log (LOGINFO, fmt::format ("timed out, {}/{} bytes received", bytesRead, test.size()));
-
-    // spCheck if we received the same data we sent
-    buf[bytesRead] = '\0';
-    cLog::log (LOGINFO, fmt::format ("rx - {}", buf));
-
-    // Free receive buffer
-    free (buf);
-  }
-  //}}}
 };
 //}}}
 
