@@ -1,4 +1,14 @@
 // main.cpp - ramcorder emulator
+// commandLine params - space seperated words
+//   log1   - logLevel 1
+//   log2   - logLevel 2
+//   log3   - logLevel 3
+//   mono   - no ansi control in console
+//   colour - ansi colour control in console
+//   loop   - com port loopback test
+//   master - v series emulator
+//   slave  - ramcorder emulator
+//   serialPortName -  windows usually "COMx", linux usually "/dev/ttySx"
 //{{{  includes
 #ifdef _WIN32
   // temporary, for Sleep, to see the failures
@@ -722,7 +732,7 @@ private:
 
 int main (int numArgs, char** args) {
 
-  // set command line switches
+  // set command line switches and defaults
   string usePortName;
   eMode mode = eSlave;
   eLogLevel logLevel = LOGINFO;
