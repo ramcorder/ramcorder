@@ -17,7 +17,7 @@
 using namespace std;
 //}}}
 
-const string kVersion = "0.99.4 compiled " __TIME__  " " __DATE__;
+const string kVersion = "0.99.5 compiled " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -53,9 +53,6 @@ constexpr uint8_t kProtocolDpbGrab = 0;
 
 constexpr char kParamIdDpb         = 'P';
 constexpr char kParamIdCarousel    = 'J';
-constexpr char kParamIdHarrysound  = 'A';
-constexpr char kParamIdHarry       = 'H';
-constexpr char kParamIdEncore      = 'E';
 
 constexpr uint8_t kParamclipSelOutput      = 0x00;
 constexpr uint8_t kParamclipSelInput       = 0x01;
