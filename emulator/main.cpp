@@ -1,14 +1,14 @@
-// main.cpp - ramcorder emulator
-// commandLine params - space seperated words
-//   log1   - logLevel 1
-//   log2   - logLevel 2
-//   log3   - logLevel 3
-//   mono   - no ansi control in console
-//   colour - ansi colour control in console
-//   loop   - com port loopback test
-//   master - v series emulator
-//   slave  - ramcorder emulator
-//   serialPortName -  windows usually "COMx", linux usually "/dev/ttySx"
+// main.cpp - ramcorder emulator, windows/linux
+// - commandLine params - space seperated words
+//   - loop   - serialPort loopback test
+//   - master - v series emulator
+//   - slave  - ramcorder emulator
+//   - serialPortName -  windows usually "COM*", linux usually "/dev/ttyS*"
+//   - mono   - no ansi control sequences in console
+//   - colour - ansi colour control sequences in console
+//   - log1   - logLevel 1 - unused
+//   - log2   - logLevel 2 - unused
+//   - log3   - logLevel 3 - unused
 //{{{  includes
 #ifdef _WIN32
   // temporary, for Sleep, to see the failures
@@ -27,7 +27,7 @@
 using namespace std;
 //}}}
 
-const string kVersion = "0.99.6 compiled " __TIME__  " " __DATE__;
+const string kVersion = "0.99.7 compiled " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -412,12 +412,14 @@ public:
   bool selectProtocol (uint8_t protocol) {
   // init ramcorder, setup unused timecode and select protocol
 
-    // first packet
+    // send status command
     startPacket (kCommandStatusReport);
 
+    // send param id
     addUint8 (kParamId);
     addChar (kParamIdDpb);
 
+    // send param timecode
     addUint8 (kParamTimecode);
     addUint8 (decToBcd (12));
     addUint8 (0);
@@ -432,6 +434,23 @@ public:
     addUint8 (protocol);
 
     ok = sendCommand (true);
+    if (ok && (mStatus == kParamStatusAck)) {
+      // send status command, again
+      startPacket (kCommandStatusReport);
+
+      // send param id
+      addUint8 (kParamId);
+      addChar (kParamIdDpb);
+
+      // send param timecode
+      addUint8 (kParamTimecode);
+      addUint8 (decToBcd (12));
+      addUint8 (0);
+      addUint8 (0);
+      addUint8 (0);
+
+      bool ok = sendCommand (true);
+    }
 
     return ok;
   }
@@ -803,7 +822,7 @@ public:
             // acknowledge command
             startPacket (kCommandAcknowledge);
 
-            // add status param, with acknowledge 
+            // add status param, with acknowledge
             addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
 
@@ -827,6 +846,21 @@ public:
             // add status param, with acknowledge
             addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
+
+            // add timecode param
+            addUint8 (kParamTimecode);
+            addUint8 (decToBcd (12));
+            addUint8 (0);
+            addUint8 (0);
+            addUint8 (0);
+
+            // add clipLength param
+            addUint8 (kParamClipLength);
+            addWord (mClipLength);
+
+            // add id param
+            addUint8 (kParamId);
+            addChar (kParamIdCarousel);
 
             // tx
             txPacket();
@@ -922,6 +956,7 @@ public:
 
 private:
   uint16_t mFieldNumber = 0;
+  uint16_t mClipLength = kNtsc ? 383 : 323;
 };
 //}}}
 
