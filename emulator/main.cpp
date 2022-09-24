@@ -800,17 +800,18 @@ public:
           case kCommandExtraStatus:
             cLog::log (LOGINFO, fmt::format ("commandExtraStatus - poll fieldNum"));
 
-            // acknowledgeCommand
+            // acknowledge command
             startPacket (kCommandAcknowledge);
 
-            // acknowledgeStatus
+            // add status param, with acknowledge 
             addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
 
-            // fieldNumber
+            // add fieldNumber param
             addUint8 (kParamFrameNumber);
             addWord (mFieldNumber);
 
+            // tx
             txPacket();
 
             break;
@@ -820,10 +821,14 @@ public:
             cLog::log (LOGINFO, fmt::format ("commandSelectProtocol paramProtocol:{:x} protocol:{:x}",
                                              mPacket[packetIndex], mPacket[packetIndex+1]));
 
-            // send acknowledge
+            // acknowledge command
             startPacket (kCommandAcknowledge);
+
+            // add status param, with acknowledge
             addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
+
+            // tx
             txPacket();
 
             break;
@@ -832,10 +837,14 @@ public:
           case kCommandRecord:
             cLog::log (LOGINFO, fmt::format ("commandRecord"));
 
-            // send acknowledge
+            // acknowledge command
             startPacket (kCommandAcknowledge);
+
+            // add status param, with acknowledge
             addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
+
+            // tx
             txPacket();
 
             break;
@@ -844,10 +853,14 @@ public:
           case kCommandView:
             cLog::log (LOGINFO, fmt::format ("commandView"));
 
-            // send acknowledge
+            // acknowledge command
             startPacket (kCommandAcknowledge);
+
+            // add status param, with acknowledge
             addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
+
+            // tx
             txPacket();
 
             break;
@@ -857,10 +870,14 @@ public:
             cLog::log (LOGINFO, fmt::format ("commandGo paramGoDelay:{:x} delay:{:x}",
                                              mPacket[packetIndex], mPacket[packetIndex+1]));
 
-            // send acknowledge
+            // acknowledge command
             startPacket (kCommandAcknowledge);
+
+            // add status param, with acknowledge
             addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
+
+            // tx
             txPacket();
 
             break;
@@ -882,10 +899,14 @@ public:
                                              mPacket[packetIndex], startPlayFieldNumber, stopPlayFieldNumber));
             packetIndex += 5;
 
-            // send acknowledge
+            // acknowledge command
             startPacket (kCommandAcknowledge);
+
+            // add status param, with acknowledge
             addUint8 (kParamStatus);
             addUint8 (kParamStatusAck);
+
+            // tx
             txPacket();
 
             break;
