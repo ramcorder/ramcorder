@@ -27,7 +27,7 @@
 using namespace std;
 //}}}
 
-const string kVersion = "0.99.5 compiled " __TIME__  " " __DATE__;
+const string kVersion = "0.99.6 compiled " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -381,19 +381,36 @@ public:
 
   //{{{
   void go() final {
-  // simulate a typical ramcorder sequence
+  // simulate a typical ramcorder sequence, very crude
 
     selectProtocol (kProtocolDpbGrab);
 
     // some sort of ramcorder exercises
-    //selectClip (...)
-    //start (...)
-    //stop()
+    selectClip (false, false, false,
+                100, 200,
+                false, false, false, false, false, false);
+
+    position (true, 100, false, false, false);
+    start (true, false, 0);
+
+    for (int i = 0; i < 100; i++) {
+      uint16_t fieldNumber = 0;
+      pollField (fieldNumber, false);
+      cLog::log (LOGINFO, fmt::format ("polling {}", fieldNumber));
+
+      #ifdef _WIN32
+        // wait about a field
+        Sleep (20);
+      #endif
+      }
+
+    //stop() {
   }
   //}}}
 
   //{{{
   bool selectProtocol (uint8_t protocol) {
+  // init ramcorder, setup unused timecode and select protocol
 
     // first packet
     startPacket (kCommandStatusReport);
@@ -420,46 +437,203 @@ public:
   }
   //}}}
   //{{{
-  bool position (bool waitForReply, uint16_t field, bool fieldMode, bool field2Dom, bool reverse) {
+  bool position (bool waitForReply, uint16_t fieldNumber, bool fieldMode, bool field2dom, bool reverse) {
+  // poition ramacorder to fieldNumber, optional wait for reply
 
-    cLog::log (LOGINFO, fmt::format ("implement position"));
-    return true;
+    cLog::log (LOGINFO, fmt::format ("position to field:{} {}{}{}",
+                                     fieldNumber,
+                                     fieldMode ? "field " : "frame ",
+                                     field2dom ? "field2dom " : " ",
+                                     reverse ? "reverse " : " "
+                                     ));
+
+    startPacket (kCommandPosition);
+
+    // clipSelect param
+    addUint8 (kParamClipSelect);
+    uint8_t clipSelect = kParamclipSelOutput;
+    if (fieldMode)
+      clipSelect |= kParamClipSelField;
+    if (reverse)
+      clipSelect |= kParamSelPlayReverse;
+    addUint8 (clipSelect);
+
+    clipSelect = 0;
+    if (field2dom)
+      clipSelect = kParamSel2field2dom;
+    addUint8 (clipSelect);
+
+    // clipDefinition param
+    addUint8 (kParamClipDefinition);
+    uint16_t startFieldNumber;
+    uint16_t stopFieldNumber;
+    if (fieldMode) {
+      startFieldNumber = fieldNumber;
+      stopFieldNumber = startFieldNumber;
+    }
+    else if (reverse) {
+      startFieldNumber = domSub1 (fieldNumber);
+      stopFieldNumber = fieldNumber;
+    }
+    else {
+      startFieldNumber = fieldNumber;
+      stopFieldNumber = domAdd1 (startFieldNumber);
+    }
+    addWord (addDominance (startFieldNumber, field2dom));
+    addWord (addDominance (stopFieldNumber, field2dom));
+
+    bool ok = sendCommand (waitForReply);
+
+    return ok;
   }
   //}}}
   //{{{
-  bool selectClip (bool inputClip, bool fieldMode, bool field2Dom,
-                   uint16_t startField, uint16_t finishField,
-                   bool play_reverse, bool play_bounce,
-                   bool rec_loop, bool play_loop,
-                   bool cine_expand, bool cine_compress) {
+  bool selectClip (bool inputClip, bool fieldMode, bool field2dom,
+                   uint16_t startField, uint16_t stopField,
+                   bool playReverse, bool playBounce,
+                   bool recLoop, bool playLoop,
+                   bool cineExpand, bool cineCompress) {
 
-    cLog::log (LOGINFO, fmt::format ("implement selectClip"));
-    return true;
+    cLog::log (LOGINFO, fmt::format ("selectClip {} {} start:{} stop{}",
+                                     inputClip ? "in" : "out",
+                                     fieldMode ? "field" : "frame",
+                                     startField, stopField
+                                     ));
+
+    // extraStatus command
+    startPacket (kCommandExtraStatus);
+    addUint8 (kParamId);
+    addUint8 (kParamIdDpb);
+
+    // clipSelect param
+    addUint8 (kParamClipSelect);
+    uint8_t clipSelect = inputClip ? kParamclipSelInput : kParamclipSelOutput;
+    if (fieldMode)
+      clipSelect |= kParamClipSelField;
+    if (recLoop)
+      clipSelect |= kParamClipSelRecordLoop;
+    if (playLoop)
+      clipSelect |= kParaClipSelPlaybackLoop;
+    if (playReverse)
+      clipSelect |= kParamSelPlayReverse;
+    if (playBounce)
+      clipSelect |= kParamSelPlayBounce;
+    addUint8 (clipSelect);
+    clipSelect = 0;
+    if (field2dom)
+      clipSelect |= kParamSel2field2dom;
+    if (cineExpand)
+      clipSelect |= kParamSel2expand;
+    if ( cineCompress)
+      clipSelect |= kParamSel2compress;
+    addUint8 (clipSelect);
+
+    // clipDefinition param
+    addUint8 (kParamClipDefinition);
+    addWord (addDominance (startField, field2dom));
+    if (fieldMode)
+      addWord (addDominance (stopField, field2dom));
+    else
+      addWord (addDominance (domAdd1 (stopField), field2dom));
+
+    // send command, wait for replay
+    bool ok = sendCommand (true);
+
+    return ok;
   }
   //}}}
   //{{{
-  bool pollField (uint16_t field, bool field2dom) {
+  bool pollField (uint16_t& field, bool field2dom) {
 
-    cLog::log (LOGINFO, fmt::format ("implement pollField"));
-    return false;
+    cLog::log (LOGINFO, fmt::format ("pollField {}", field2dom ?"field2dom" : ""));
+
+    startPacket (kCommandExtraStatus);
+    addUint8 (kParamGoDelay);
+    bool ok = sendCommand (true);
+
+    if (field2dom) {
+      if (mFieldNumber == 0)
+        field = (mClipLength * 2) - 1;
+      else
+        field = mFieldNumber - 1;
+    }
+    else
+      field = mFieldNumber;
+
+    return ok;
   }
   //}}}
   //{{{
   bool start (bool playGo, bool recordGo, uint16_t goDelay) {
 
-    cLog::log (LOGINFO, fmt::format ("implement start"));
-    return true;
+    cLog::log (LOGINFO, fmt::format ("start {}{}goDelay {}", playGo ? "play ": " ", recordGo ? "record " : " ", goDelay));
+
+    if (playGo && recordGo) {
+      startPacket (kCommandGo);
+      addUint8 (kParamGoDelay);
+      addUint8 (2 + goDelay);
+
+    } else if (playGo)
+      startPacket (kCommandView);
+
+    else if (recordGo)
+      startPacket (kCommandRecord);
+
+    bool ok = sendCommand (true);
+
+    return ok;
   }
   //}}}
   //{{{
   bool stop() {
+  // just asking for status stops the ramcorder !
 
-    cLog::log (LOGINFO, fmt::format ("implement stop"));
-    return true;
+    cLog::log (LOGINFO, fmt::format ("stop"));
+
+    startPacket (kCommandStatusReport);
+    addUint8 (kParamId);
+    addChar (kParamIdDpb);
+    bool ok = sendCommand (true);
+
+    return ok;
   }
   //}}}
 
 private:
+  //{{{
+  uint16_t addDominance (uint16_t fieldNumber, bool field2dom) {
+  // add field2 dominance to fieldNumber
+
+    if (field2dom) {
+      if ((fieldNumber + 1) > ((mClipLength * 2) - 1))
+        return 0;
+      else
+        return fieldNumber + 1;
+    }
+    else
+      return fieldNumber;
+  }
+  //}}}
+  //{{{
+  uint16_t domAdd1 (uint16_t fieldNumber) {
+
+    fieldNumber = fieldNumber + 1;
+    if (fieldNumber > ((mClipLength * 2) - 1))
+      return 0;
+    else
+      return fieldNumber;
+  }
+  //}}}
+  //{{{
+  uint16_t domSub1 (uint16_t fieldNumber) {
+
+    if (fieldNumber > 0)
+      return fieldNumber - 1;
+    else
+      return (mClipLength * 2) - 1;
+  }
+  //}}}
+
   //{{{
   bool sendCommand (bool waitForReply) {
 
