@@ -27,7 +27,7 @@
 using namespace std;
 //}}}
 
-const string kVersion = "0.99.7 compiled " __TIME__  " " __DATE__;
+const string kVersion = "0.99.8 compiled " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -206,8 +206,6 @@ protected:
   //{{{
   bool txPacket() {
 
-    cLog::log (LOGINFO, fmt::format ("txPacket"));
-
     // set first byte of command packet from header and packet length count (minus header and command byte)
     mPacket[0] = 0xF0 | ((mCount - 2) & 0xF);
 
@@ -236,19 +234,17 @@ protected:
   bool rxPacket (int headerTimeout) {
   // wait for and rx reply
 
-    cLog::log (LOGINFO, fmt::format ("rxPacket"));
-
     // rx header
     mPacket = { 0 };
     int headerByteRead = spCheck (sp_blocking_read (getPort(), &mPacket[0], 1, headerTimeout));
     if (headerByteRead != 1) {
       // header error, unlikely unless we use the timeout
-      cLog::log (LOGERROR, fmt::format ("rx header failed"));
+      cLog::log (LOGERROR, fmt::format ("rxPacket header failed"));
       return false;
     }
 
     if ((mPacket[0] & 0xF0) != 0xF0) {
-      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - header byte not header {}", headerByteRead, mPacket[0]));
+      cLog::log (LOGERROR, fmt::format ("rxPacket {}:bytes - header byte not header {}", headerByteRead, mPacket[0]));
       return false;
     }
 
@@ -257,14 +253,14 @@ protected:
 
     // header already rxed
     int packetBodyBytesExpected = mCount;
-    cLog::log (LOGINFO, fmt::format ("rx header {:x} expect {} more bytes", mPacket[0], packetBodyBytesExpected));
+    cLog::log (LOGINFO, fmt::format ("rxPacket header {:x} expect {} more bytes", mPacket[0], packetBodyBytesExpected));
 
     // rx packet body, with timeout
     const unsigned int timeout = 1000; // 1 second
     int packetBodyBytesRead = spCheck (sp_blocking_read (getPort(), mPacket.data()+1, packetBodyBytesExpected, timeout));
     if (packetBodyBytesRead != packetBodyBytesExpected) {
       // packet body error
-      cLog::log (LOGERROR, fmt::format ("rx {}:bytes - packet body not ok - {}", packetBodyBytesRead, getPacketString()));
+      cLog::log (LOGERROR, fmt::format ("rxPacket {}:bytes - packet body not ok - {}", packetBodyBytesRead, getPacketString()));
       return false;
     }
 
@@ -274,11 +270,11 @@ protected:
     checksum = (0x100 - (checksum & 0xFF)) & 0xFF;
 
     if (checksum != mPacket[mCount]) {
-      cLog::log (LOGERROR, fmt::format ("rx checksum {:x} != {:x} - {}", mPacket[mCount], checksum, getPacketString()));
+      cLog::log (LOGERROR, fmt::format ("rxPacket checksum {:x} != {:x} - {}", mPacket[mCount], checksum, getPacketString()));
       return false;
     }
 
-    cLog::log (LOGINFO, fmt::format ("rx {}:bytes - packet ok - {}", packetBodyBytesRead, getPacketString()));
+    cLog::log (LOGINFO, fmt::format ("rxPacket {}:bytes - packet ok - {}", packetBodyBytesRead, getPacketString()));
     return true;
   }
   //}}}
@@ -393,7 +389,7 @@ public:
     position (true, 100, false, false, false);
     start (true, false, 0);
 
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 5; i++) {
       uint16_t fieldNumber = 0;
       pollField (fieldNumber, false);
       cLog::log (LOGINFO, fmt::format ("polling {}", fieldNumber));
@@ -772,30 +768,31 @@ public:
   virtual ~cRamcorderSlave() = default;
 
   void go() final {
+
+    cLog::log (LOGINFO, fmt::format ("slave - waiting for command"));
+
     while (true) {
       // listen for command
       if (rxPacket (0)) {
-        // valid packet, action command
-        cLog::log (LOGINFO, fmt::format ("slave rx command {}:{:x}", static_cast<char>(mPacket[1]), mPacket[1]));
-
-        // point to first param
-        uint8_t packetIndex = 2;
+        // rx'ed checksummed packet, read command, point to first param
+        uint8_t packetIndex = 1;
+        char command = mPacket[packetIndex];
+        packetIndex++;
 
         // decode command
-        switch (mPacket[1]) {
+        switch (command) {
           //{{{
           case kCommandStatusReport:
-            cLog::log (LOGINFO, fmt::format ("commandStatusReport"));
+            cLog::log (LOGINFO, fmt::format ("rx'ed commandStatusReport"));
 
             // look for params
             while (packetIndex < mCount) {
               if (mPacket[packetIndex] == kParamId) {
-                cLog::log (LOGINFO, fmt::format ("- paramId:{:x} id:{:x}", mPacket[packetIndex], mPacket[packetIndex+1]));
+                cLog::log (LOGINFO, fmt::format ("- paramId - id:{:x}", mPacket[packetIndex+1]));
                 packetIndex += 2;
               }
               else if (mPacket[packetIndex] == kParamTimecode) {
-                cLog::log (LOGINFO, fmt::format ("- paramTimecode:{:x} {:x} {:x} {:x} {:x}",
-                                                 mPacket[packetIndex],
+                cLog::log (LOGINFO, fmt::format ("- paramTimecode - timecode:{:x}:{:x}:{:x}:{:x}",
                                                  mPacket[packetIndex+1], mPacket[packetIndex+2],
                                                  mPacket[packetIndex+3], mPacket[packetIndex+4]));
                 packetIndex += 5;
@@ -817,7 +814,7 @@ public:
           //}}}
           //{{{
           case kCommandExtraStatus:
-            cLog::log (LOGINFO, fmt::format ("commandExtraStatus - poll fieldNum"));
+            cLog::log (LOGINFO, fmt::format ("rx'ed commandExtraStatus"));
 
             // acknowledge command
             startPacket (kCommandAcknowledge);
@@ -837,8 +834,24 @@ public:
           //}}}
           //{{{
           case kCommandSelectProtocol:
-            cLog::log (LOGINFO, fmt::format ("commandSelectProtocol paramProtocol:{:x} protocol:{:x}",
-                                             mPacket[packetIndex], mPacket[packetIndex+1]));
+            cLog::log (LOGINFO, fmt::format ("rx'ed commandSelectProtocol"));
+
+            while (packetIndex < mCount) {
+              if (mPacket[0] == kParamId) {
+                cLog::log (LOGINFO, fmt::format ("kParamProtocol - protocol:{:x}", mPacket[packetIndex+1]));
+                packetIndex += 2;
+              }
+              else if (mPacket[0] == kParamTimecode) {
+                cLog::log (LOGINFO, fmt::format ("paramTimecode - timecode:{:x}:{:x}:{:x}:{:x}",
+                                                 mPacket[packetIndex+1], mPacket[packetIndex+2],
+                                                 mPacket[packetIndex+3], mPacket[packetIndex+4]));
+                packetIndex += 5;
+              }
+              else {
+                cLog::log (LOGERROR, fmt::format ("- unknown param:{:x}", mPacket[packetIndex]));
+                packetIndex++;
+              }
+            }
 
             // acknowledge command
             startPacket (kCommandAcknowledge);
@@ -869,7 +882,7 @@ public:
           //}}}
           //{{{
           case kCommandRecord:
-            cLog::log (LOGINFO, fmt::format ("commandRecord"));
+            cLog::log (LOGINFO, fmt::format ("rx'ed commandRecord"));
 
             // acknowledge command
             startPacket (kCommandAcknowledge);
@@ -885,7 +898,7 @@ public:
           //}}}
           //{{{
           case kCommandView:
-            cLog::log (LOGINFO, fmt::format ("commandView"));
+            cLog::log (LOGINFO, fmt::format ("rx'ed commandView"));
 
             // acknowledge command
             startPacket (kCommandAcknowledge);
@@ -901,8 +914,18 @@ public:
           //}}}
           //{{{
           case kCommandGo:
-            cLog::log (LOGINFO, fmt::format ("commandGo paramGoDelay:{:x} delay:{:x}",
-                                             mPacket[packetIndex], mPacket[packetIndex+1]));
+            cLog::log (LOGINFO, fmt::format ("rx'ed commandGo"));
+
+            while (packetIndex < mCount) {
+              if (mPacket[packetIndex] == kParamGoDelay) {
+                cLog::log (LOGINFO, fmt::format ("paramGoDelay - delay:{:x}", mPacket[packetIndex+1]));
+                packetIndex += 2;
+              }
+              else {
+                cLog::log (LOGERROR, fmt::format ("- unknown param:{:x}", mPacket[packetIndex]));
+                packetIndex++;
+              }
+            }
 
             // acknowledge command
             startPacket (kCommandAcknowledge);
@@ -918,20 +941,28 @@ public:
           //}}}
           //{{{
           case kCommandPosition: {
-            cLog::log (LOGINFO, fmt::format ("commandPosition"));
+            cLog::log (LOGINFO, fmt::format ("rx'ed commandPosition"));
 
-            // clipSelect param
-            cLog::log (LOGINFO, fmt::format ("- paramClipSelect:{:x} mode:{:x} dom:{:x}",
-                                             mPacket[packetIndex], mPacket[packetIndex+1], mPacket[packetIndex+2]));
-            packetIndex += 3;
+            while (packetIndex < mCount) {
+              if (mPacket[packetIndex] == kParamClipSelect) {
+                cLog::log (LOGINFO, fmt::format ("- paramClipSelect - mode:{:x} dom:{:x}",
+                                                 mPacket[packetIndex+1], mPacket[packetIndex+2]));
+                packetIndex += 3;
+                }
+              else if (mPacket[packetIndex] == kParamClipDefinition) {
+                uint16_t startPlayFieldNumber = (mPacket[packetIndex+1] * 0x100) + mPacket[packetIndex+2];
+                uint16_t stopPlayFieldNumber = (mPacket[packetIndex+3] * 0x100) + mPacket[packetIndex+4];
+                packetIndex += 5;
 
-            // clipDefinition param
-            uint16_t startPlayFieldNumber = (mPacket[packetIndex+1] * 0x100) + mPacket[packetIndex+2];
-            uint16_t stopPlayFieldNumber = (mPacket[packetIndex+3] * 0x100) + mPacket[packetIndex+4];
-            mFieldNumber = startPlayFieldNumber;
-            cLog::log (LOGINFO, fmt::format ("- paramClipDefinition:{:x} start:{:x} stop:{:x}",
-                                             mPacket[packetIndex], startPlayFieldNumber, stopPlayFieldNumber));
-            packetIndex += 5;
+                cLog::log (LOGINFO, fmt::format ("- paramClipDefinition - start:{:x} stop:{:x}",
+                                                 startPlayFieldNumber, stopPlayFieldNumber));
+                mFieldNumber = startPlayFieldNumber;
+                }
+              else {
+                cLog::log (LOGERROR, fmt::format ("- unknown param:{:x}", mPacket[packetIndex]));
+                packetIndex++;
+              }
+            }
 
             // acknowledge command
             startPacket (kCommandAcknowledge);
@@ -947,7 +978,7 @@ public:
           }
           //}}}
           default:
-            cLog::log (LOGERROR, fmt::format ("unexpected command {:x}", mPacket[1]));
+            cLog::log (LOGERROR, fmt::format ("rx'ed unexpected command:{:x}", command));
             break;
         }
       }
