@@ -27,7 +27,7 @@
 using namespace std;
 //}}}
 
-const string kVersion = "0.99.9 compiled " __TIME__  " " __DATE__;
+const string kVersion = "0.99.10 compiled " __TIME__  " " __DATE__;
 //{{{  constexpr
 constexpr uint8_t kPacketMax = 16;
 
@@ -380,9 +380,11 @@ public:
   // simulate a typical ramcorder sequence, very crude
 
     // init
+    cLog::log (LOGINFO, fmt::format ("master - init"));
     selectProtocol (kProtocolDpbGrab);
 
     // position
+    cLog::log (LOGINFO, fmt::format ("master - position at 100"));
     position (true, 100, false, false, false);
     #ifdef _WIN32
       // wait a second
@@ -390,19 +392,24 @@ public:
     #endif
 
     // play clip with a few polls for position
+    cLog::log (LOGINFO, fmt::format ("master - select clip to play from 100 to 200"));
     selectClip (false, false, false,
                 100, 200,
                 false, false, false, false, false, false);
+
+    cLog::log (LOGINFO, fmt::format ("master - start play"));
     start (true, false, 0);
 
-    for (int i = 0; i < 5; i++) {
+    // poll 10 times for a second
+    cLog::log (LOGINFO, fmt::format ("master - poll 10 times, every 100ms"));
+    for (int i = 0; i < 10; i++) {
       uint16_t fieldNumber = 0;
       pollField (fieldNumber, false);
-      cLog::log (LOGINFO, fmt::format ("polling {}", fieldNumber));
+      cLog::log (LOGINFO, fmt::format ("master - polling {}", fieldNumber));
 
       #ifdef _WIN32
-        // wait about a field
-        Sleep (20);
+        // wait 100ms
+        Sleep (100);
       #endif
       }
 
@@ -414,14 +421,14 @@ public:
   bool selectProtocol (uint8_t protocol) {
   // init ramcorder, setup unused timecode and select protocol
 
-    // send status command
+    // send statusReport command
     startPacket (kCommandStatusReport);
 
-    // send param id
+    // add id param
     addUint8 (kParamId);
     addChar (kParamIdDpb);
 
-    // send param timecode
+    // add timecode param
     addUint8 (kParamTimecode);
     addUint8 (decToBcd (12));
     addUint8 (0);
@@ -430,33 +437,36 @@ public:
 
     bool ok = sendCommand (true);
 
-    // second packet
+    // send selectProtocol command
     startPacket (kCommandSelectProtocol);
     addUint8 (kParamProtocol);
     addUint8 (protocol);
 
     ok = sendCommand (true);
+
+    // if ok send stuff again, ??? am i missing some sort of busy test here ???
     if (ok && (mStatus == kParamStatusAck)) {
       // send status command, again
       startPacket (kCommandStatusReport);
 
-      // send param id
+      // add id param
       addUint8 (kParamId);
       addChar (kParamIdDpb);
 
-      // send param timecode
+      // add timecode param
       addUint8 (kParamTimecode);
       addUint8 (decToBcd (12));
       addUint8 (0);
       addUint8 (0);
       addUint8 (0);
 
-      bool ok = sendCommand (true);
+      ok = sendCommand (true);
     }
 
     return ok;
   }
   //}}}
+
   //{{{
   bool position (bool waitForReply, uint16_t fieldNumber, bool fieldMode, bool field2dom, bool reverse) {
   // poition ramacorder to fieldNumber, optional wait for reply
@@ -468,9 +478,10 @@ public:
                                      reverse ? "reverse " : " "
                                      ));
 
+    // send position command
     startPacket (kCommandPosition);
 
-    // clipSelect param
+    // add clipSelect param
     addUint8 (kParamClipSelect);
     uint8_t clipSelect = kParamclipSelOutput;
     if (fieldMode)
@@ -484,7 +495,7 @@ public:
       clipSelect = kParamSel2field2dom;
     addUint8 (clipSelect);
 
-    // clipDefinition param
+    // add clipDefinition param
     addUint8 (kParamClipDefinition);
     uint16_t startFieldNumber;
     uint16_t stopFieldNumber;
@@ -503,11 +514,13 @@ public:
     addWord (addDominance (startFieldNumber, field2dom));
     addWord (addDominance (stopFieldNumber, field2dom));
 
+    // optional wait for reply
     bool ok = sendCommand (waitForReply);
 
     return ok;
   }
   //}}}
+
   //{{{
   bool selectClip (bool inputClip, bool fieldMode, bool field2dom,
                    uint16_t startField, uint16_t stopField,
@@ -526,8 +539,9 @@ public:
     addUint8 (kParamId);
     addUint8 (kParamIdDpb);
 
-    // clipSelect param
+    // add clipSelect param
     addUint8 (kParamClipSelect);
+
     uint8_t clipSelect = inputClip ? kParamclipSelInput : kParamclipSelOutput;
     if (fieldMode)
       clipSelect |= kParamClipSelField;
@@ -540,6 +554,7 @@ public:
     if (playBounce)
       clipSelect |= kParamSelPlayBounce;
     addUint8 (clipSelect);
+
     clipSelect = 0;
     if (field2dom)
       clipSelect |= kParamSel2field2dom;
@@ -549,7 +564,7 @@ public:
       clipSelect |= kParamSel2compress;
     addUint8 (clipSelect);
 
-    // clipDefinition param
+    // add clipDefinition param
     addUint8 (kParamClipDefinition);
     addWord (addDominance (startField, field2dom));
     if (fieldMode)
@@ -557,7 +572,33 @@ public:
     else
       addWord (addDominance (domAdd1 (stopField), field2dom));
 
-    // send command, wait for replay
+    // send command
+    bool ok = sendCommand (true);
+
+    return ok;
+  }
+  //}}}
+  //{{{
+  bool start (bool playGo, bool recordGo, uint16_t goDelay) {
+
+    cLog::log (LOGINFO, fmt::format ("start {}{}goDelay {}", playGo ? "play ": " ", recordGo ? "record " : " ", goDelay));
+
+    if (playGo && recordGo) {
+      // send play/recordgo command
+      startPacket (kCommandGo);
+
+      // send goDelay param
+      addUint8 (kParamGoDelay);
+      addUint8 (2 + goDelay);
+
+    } else if (playGo)
+      // send playGo command
+      startPacket (kCommandView);
+
+    else if (recordGo)
+      // send recordGo command
+     startPacket (kCommandRecord);
+
     bool ok = sendCommand (true);
 
     return ok;
@@ -568,7 +609,10 @@ public:
 
     cLog::log (LOGINFO, fmt::format ("pollField {}", field2dom ?"field2dom" : ""));
 
+    // send extraStatus command
     startPacket (kCommandExtraStatus);
+
+    // add goDelay param
     addUint8 (kParamGoDelay);
     bool ok = sendCommand (true);
 
@@ -585,35 +629,18 @@ public:
   }
   //}}}
   //{{{
-  bool start (bool playGo, bool recordGo, uint16_t goDelay) {
-
-    cLog::log (LOGINFO, fmt::format ("start {}{}goDelay {}", playGo ? "play ": " ", recordGo ? "record " : " ", goDelay));
-
-    if (playGo && recordGo) {
-      startPacket (kCommandGo);
-      addUint8 (kParamGoDelay);
-      addUint8 (2 + goDelay);
-
-    } else if (playGo)
-      startPacket (kCommandView);
-
-    else if (recordGo)
-      startPacket (kCommandRecord);
-
-    bool ok = sendCommand (true);
-
-    return ok;
-  }
-  //}}}
-  //{{{
   bool stop() {
-  // just asking for status stops the ramcorder !
+  // status command with is param stops the ramcorder ?
 
     cLog::log (LOGINFO, fmt::format ("stop"));
 
+    // send statusReport command
     startPacket (kCommandStatusReport);
+
+    // send id param
     addUint8 (kParamId);
     addChar (kParamIdDpb);
+
     bool ok = sendCommand (true);
 
     return ok;
@@ -779,9 +806,11 @@ public:
       // listen for command
       cLog::log (LOGINFO, fmt::format ("slave - waiting for command"));
       if (rxPacket (0)) {
-        // rx'ed checksummed packet, read command, point to first param
+        // rx'ed checksummed packet, read command
         uint8_t packetIndex = 1;
         char command = mPacket[packetIndex];
+
+        // packetIndex points to first param
         packetIndex++;
 
         // decode command
